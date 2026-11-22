@@ -1,0 +1,280 @@
+[DOCUMENT]
+TITLE: Architecture design rules
+
+[TEXT]
+STATEMENT: >>>
+계층과 크레이트 구성, 주요 흐름, HTTP/MCP 표면 설명은 ``docs/architecture.md`` 에 있습니다.
+이 문서는 그중 테스트나 설정으로 강제되거나 변경 시 지켜야 하는 설계 규칙을 ``ARCH-*`` UID로 관리합니다.
+<<<
+
+[[SECTION]]
+TITLE: 계층 불변 조건
+
+[REQUIREMENT]
+UID: ARCH-INV-1
+STATUS: Active
+TITLE: 어댑터와 순수 계층은 application을 끌어오지 않음
+STATEMENT: >>>
+``dci``, ``agent``, ``control``, ``history``, ``ports`` 는 전이적으로도 ``application`` 을 끌어오지 않습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+- TYPE: File
+  VALUE: tools/layers.toml
+
+[REQUIREMENT]
+UID: ARCH-INV-2
+STATUS: Active
+TITLE: 비동기 런타임 없는 계층
+STATEMENT: >>>
+``dci``, ``ports``, ``history`` 는 ``tokio`` 런타임을 끌어오지 않습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+
+[REQUIREMENT]
+UID: ARCH-INV-3
+STATUS: Active
+TITLE: application의 호스트 I/O 금지
+STATEMENT: >>>
+``application`` 은 Tokio의 호스트 I/O 기능(fs, net, process 등)을 켜지 않으며, 비즈니스 유스케이스는 ``Clock``·``DiagnosticSink`` 포트를 통해서만 시계와 진단에 접근합니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+
+[REQUIREMENT]
+UID: ARCH-INV-4
+STATUS: Active
+TITLE: 외부 의존성 허용 목록
+STATEMENT: >>>
+``domain``, ``contracts``, ``dci``, ``application``, ``presentation``, ``history``, ``ports`` 는 외부 의존성도 허용 목록으로 제한됩니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+
+[REQUIREMENT]
+UID: ARCH-INV-5
+STATUS: Active
+TITLE: 순수 계층 AST 순수성
+STATEMENT: >>>
+AST 순수성 검사가 순수 계층(``domain``, ``contracts``, ``dci``, ``presentation``, ``ports``)의 I/O 사용을 막습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture/purity.rs
+
+[REQUIREMENT]
+UID: ARCH-INV-6
+STATUS: Active
+TITLE: 비테스트 코드의 unwrap 금지
+STATEMENT: >>>
+모든 크레이트는 비테스트 코드에서 ``unwrap`` 을 금지합니다(``deny(clippy::unwrap_used)``).
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/src/lib.rs
+
+[REQUIREMENT]
+UID: ARCH-INV-7
+STATUS: Active
+TITLE: 승인된 의존 방향
+STATEMENT: >>>
+``tools/layers.toml`` 이 승인된 의존 방향의 원천입니다. 표의 허용 의존성은 일반·빌드 의존성 기준이며, 테스트 전용 의존성은 ``[dev]`` 에 따로 승인되어 있습니다(``api`` → agent, control, infrastructure / ``history`` → application, contracts / ``harness`` → process).
+``mise run layers`` 가 Cargo 메타데이터와 비교해 일반·빌드·테스트·플랫폼별 의존성과 새 워크스페이스 멤버를 검사하며, ``mise run check`` 에도 포함됩니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: tools/layers.toml
+- TYPE: File
+  VALUE: crates/harness/tests/layers.rs
+
+[REQUIREMENT]
+UID: ARCH-INV-8
+STATUS: Active
+TITLE: unsafe·공급망·미사용 의존성 게이트
+STATEMENT: >>>
+``cargo harness unsafe`` (cargo-geiger), ``cargo harness deny`` (cargo-deny), ``cargo harness unused`` (cargo-machete)가 ``unsafe``, 공급망, 미사용 의존성을 막습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: deny.toml
+- TYPE: File
+  VALUE: crates/harness/tests/cli.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 정책 위치
+
+[REQUIREMENT]
+UID: ARCH-POLICY-1
+STATUS: Active
+TITLE: 결정론적 규칙은 순수 계층에
+STATEMENT: >>>
+상태 전이, 검증, 승인 정책 같은 결정론적 규칙은 domain / contracts / presentation 에 둡니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture/purity.rs
+
+[REQUIREMENT]
+UID: ARCH-POLICY-2
+STATUS: Active
+TITLE: 유스케이스는 application에
+STATEMENT: >>>
+유스케이스, 멱등성, 작업 수명주기, 인가 후 조정은 application 에 둡니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/use_cases.rs
+
+[REQUIREMENT]
+UID: ARCH-POLICY-3
+STATUS: Active
+TITLE: 부수효과는 어댑터에
+STATEMENT: >>>
+프로세스·파일·git·SQLite·네트워크는 어댑터(agent, control, history, infrastructure)에 둡니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+
+[REQUIREMENT]
+UID: ARCH-POLICY-4
+STATUS: Active
+TITLE: 얇은 HTTP/MCP 핸들러
+STATEMENT: >>>
+HTTP/MCP 핸들러(api)는 디코드 → 인가 → 서비스 호출 → 결과 매핑만 수행합니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/http.rs
+
+[REQUIREMENT]
+UID: ARCH-POLICY-5
+STATUS: Active
+TITLE: 공유 기능은 application 서비스에
+STATEMENT: >>>
+클라이언트, 에이전트, 자동화가 함께 쓰는 기능은 핸들러가 아니라 **application 서비스** 에 둡니다.
+그래야 HTTP, MCP, 데스크톱, CLI가 같은 동작을 얻습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/use_cases.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 상태와 보안
+
+[REQUIREMENT]
+UID: ARCH-SEC-1
+STATUS: Active
+TITLE: 홈 아래 상태 저장
+STATEMENT: >>>
+기본 상태는 ``Settings::discover`` 가 정하는 홈 아래에 저장됩니다. 개발 시 ``cargo harness dev`` 는 체크아웃 로컬 ``.dev/home`` 을 쓰며 실제 프로필을 복사하지 않습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/src/settings.rs
+- TYPE: File
+  VALUE: crates/harness/tests/cli.rs
+
+[REQUIREMENT]
+UID: ARCH-SEC-2
+STATUS: Active
+TITLE: 루프백 바인딩과 베어러 토큰
+STATEMENT: >>>
+서버는 루프백에만 바인딩합니다. 인증은 ``load_or_create_token`` 이 만든 베어러 토큰입니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: apps/server/src/main.rs
+- TYPE: File
+  VALUE: crates/api/tests/http.rs
+
+[REQUIREMENT]
+UID: ARCH-SEC-3
+STATUS: Active
+TITLE: 진단 로그의 민감 정보 제외
+STATEMENT: >>>
+토큰, 프롬프트, 첨부, 응답은 진단 로그에 남기지 않습니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 변경 절차
+
+[REQUIREMENT]
+UID: ARCH-CHANGE-1
+STATUS: Active
+TITLE: 계약 변경 영향 확인 순서
+STATEMENT: >>>
+계약을 바꾸면 **server(api) → desktop → web → CLI → 제공자 어댑터** 순으로 영향 여부를 확인하고, 해당하는 표면을 명시합니다.
+<<<
+
+[REQUIREMENT]
+UID: ARCH-CHANGE-2
+STATUS: Active
+TITLE: 실패하는 공개 경계 테스트로 시작
+STATEMENT: >>>
+변경은 Given/When/Then 시나리오 하나당 실패하는 공개 경계 테스트 하나로 시작합니다.
+<<<
+
+[REQUIREMENT]
+UID: ARCH-CHANGE-3
+STATUS: Active
+TITLE: 요구사항과 설계 규칙 먼저 기록
+STATEMENT: >>>
+새 요구사항이나 설계 규칙, 또는 그 변경은 구현 전에 ``docs/requirements/*.sdoc`` 에 UID와 함께 기록하고, 검증하는 테스트나 설정 파일을 ``File`` 관계로 연결합니다. ``mise run docs`` 가 연결을 검증합니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: strictdoc.toml
+- TYPE: File
+  VALUE: mise.toml
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 알려진 제약
+
+[REQUIREMENT]
+UID: ARCH-CONSTRAINT-1
+STATUS: Active
+TITLE: 고정된 Rust 툴체인
+STATEMENT: >>>
+Rust는 ``nightly-2026-09-27`` 로 고정(``rust-toolchain.toml``), 에디션 2024.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: rust-toolchain.toml
+
+[REQUIREMENT]
+UID: ARCH-CONSTRAINT-2
+STATUS: Active
+TITLE: Windows 접근성 어댑터 패치
+STATEMENT: >>>
+Windows 접근성 어댑터는 ``vendor/accesskit_windows`` 패치를 사용합니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: vendor/accesskit_windows/GPUI-AGENT-PATCH.md
+
+[REQUIREMENT]
+UID: ARCH-CONSTRAINT-3
+STATUS: Active
+TITLE: 데스크톱 검증 호스트
+STATEMENT: >>>
+데스크톱 검증은 지원되는 네이티브 빌드 호스트에서만 가능합니다(``cargo harness check --include-desktop``).
+<<<
+
+[[/SECTION]]

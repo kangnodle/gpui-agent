@@ -1,0 +1,19 @@
+[project]
+title = "gpui-agent requirements"
+cache_dir = "target/strictdoc/cache"
+features = ["REQUIREMENT_TO_SOURCE_TRACEABILITY"]
+include_doc_paths = ["docs/requirements/**"]
+include_source_paths = [
+  "AGENTS.md",
+  "deny.toml",
+  "strictdoc.toml",
+  "vendor/**",
+  "CLAUDE.md",
+  "mise.toml",
+  "rust-toolchain.toml",
+  "tools/**",
+  ".github/**",
+  "apps/**",
+  "crates/**",
+]
+exclude_source_paths = ["target/**"]

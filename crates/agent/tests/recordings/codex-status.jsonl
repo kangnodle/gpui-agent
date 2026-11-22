@@ -1,0 +1,7 @@
+{"provider":"codex","runtime_version":"codex-cli 0.163.0","schema":1,"source":"live"}
+{"direction":"client","message":{"id":1,"method":"initialize","params":{"clientInfo":{"name":"[redacted]","title":"[redacted]","version":"[redacted]"}}}}
+{"direction":"provider","message":{"id":1,"result":{"userAgent":"[redacted]"}}}
+{"direction":"client","message":{"method":"initialized","params":{}}}
+{"direction":"client","message":{"id":2,"method":"account/read","params":{"refreshToken":true}}}
+{"direction":"provider","message":{"method":"[redacted]","params":{}}}
+{"direction":"provider","message":{"id":2,"result":{"account":null}}}

@@ -1,0 +1,11 @@
+[package]
+name = "gpui-agent-ports"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gpui-agent-domain.workspace = true
+gpui-agent-contracts.workspace = true

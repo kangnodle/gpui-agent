@@ -1,0 +1,75 @@
+[workspace]
+  exclude = ["vendor/accesskit_windows"]
+  members = [
+    "crates/domain",
+    "crates/contracts",
+    "crates/dci",
+    "crates/presentation",
+    "crates/application",
+    "crates/ports",
+    "crates/infrastructure",
+    "crates/history",
+    "crates/control",
+    "crates/process",
+    "crates/agent",
+    "crates/api",
+    "apps/cli",
+    "apps/server",
+    "apps/desktop",
+    "crates/harness",
+  ]
+  resolver = "2"
+
+  # Inner layers and adapters that must stay free of `unsafe`; `cargo harness
+  # unsafe` (cargo-geiger) fails if one gains unsafe code or drops
+  # `#![forbid(unsafe_code)]`. `process`, `control` and `desktop` own the
+  # platform FFI and are intentionally absent.
+  [workspace.metadata.harness]
+    unsafe-free = [
+      "gpui-agent-domain",
+      "gpui-agent-contracts",
+      "gpui-agent-dci",
+      "gpui-agent-presentation",
+      "gpui-agent-ports",
+      "gpui-agent-application",
+      "gpui-agent-history",
+      "gpui-agent",
+      "gpui-agent-infrastructure",
+      "gpui-agent-api",
+      "gpui-agent-server",
+      "gpui-agent-cli",
+      "gpui-agent-harness",
+    ]
+
+  [workspace.package]
+    edition      = "2024"
+    license      = "MIT"
+    rust-version = "1.90"
+    version      = "0.1.0"
+
+  [workspace.dependencies]
+    anyhow       = "1"
+    clap         = {features = ["derive"], version = "4"}
+    dirs         = "6"
+    reqwest      = {default-features = false, features = ["blocking", "json", "rustls-tls", "stream"], version = "0.12"}
+    serde        = {features = ["derive"], version = "1"}
+    serde_json   = "1"
+    url          = "2"
+    gpui-agent     = {path = "crates/agent", version = "0.1.0"}
+    gpui-agent-api = {path = "crates/api", version = "0.1.0"}
+    tokio        = "1"
+    rusqlite     = {features = ["bundled"], version = "0.41"}
+
+    gpui-agent-domain = {path = "crates/domain", version = "0.1.0"}
+    gpui-agent-contracts = {path = "crates/contracts", version = "0.1.0"}
+    gpui-agent-dci = {path = "crates/dci", version = "0.1.0"}
+    gpui-agent-presentation = {path = "crates/presentation", version = "0.1.0"}
+    gpui-agent-application = {path = "crates/application", version = "0.1.0"}
+    gpui-agent-ports = {path = "crates/ports", version = "0.1.0"}
+    gpui-agent-infrastructure = {path = "crates/infrastructure", version = "0.1.0"}
+    gpui-agent-history = {path = "crates/history", version = "0.1.0"}
+    gpui-agent-control = {path = "crates/control", version = "0.1.0"}
+    gpui-agent-process = {path = "crates/process", version = "0.1.0"}
+
+[patch.crates-io]
+accesskit_windows = { path = "vendor/accesskit_windows" }

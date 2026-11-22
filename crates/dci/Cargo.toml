@@ -1,0 +1,11 @@
+[package]
+name = "gpui-agent-dci"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+gpui-agent-contracts.workspace = true
+gpui-agent-domain.workspace = true
+serde_json.workspace = true

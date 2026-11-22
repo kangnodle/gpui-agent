@@ -1,0 +1,15 @@
+[package]
+  edition.workspace      = true
+  license.workspace      = true
+  name                   = "gpui-agent-server"
+  rust-version.workspace = true
+  version.workspace      = true
+
+[dependencies]
+  gpui-agent-control.workspace = true
+  gpui-agent-infrastructure.workspace = true
+  anyhow.workspace       = true
+  clap.workspace         = true
+  gpui-agent.workspace     = true
+  gpui-agent-api.workspace = true
+  tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal"] }

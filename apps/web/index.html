@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#182431" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <title>Gpui Agent</title>
+  </head>
+  <body>
+    <header>
+      <h1>Gpui Agent</h1>
+      <span>웹 · 모바일</span><button id="disconnect">연결 해제</button>
+    </header>
+    <section id="connect">
+      <label
+        >서버의 API 토큰
+        <input
+          id="token"
+          type="password"
+          autocomplete="off"
+          placeholder="api.token 내용을 입력"
+          maxlength="256" /></label
+      ><button id="connectButton">연결</button>
+      <p>
+        토큰은 이 탭의 메모리에만 보관합니다. 모바일은 신뢰하는 HTTPS 주소로
+        접속하세요. URL에 토큰을 넣지 마세요.
+      </p>
+    </section>
+    <p id="error" role="alert"></p>
+    <main id="app" hidden>
+      <section class="selectors">
+        <label>제공자<select id="provider" aria-label="제공자"></select></label
+        ><label>계정<select id="account" aria-label="계정"></select></label
+        ><label
+          >프로젝트<select id="workspace" aria-label="프로젝트"></select></label
+        ><button id="login">로그인</button><button id="logout">로그아웃</button
+        ><span id="status" role="status"></span>
+      </section>
+      <details id="projectGit" hidden>
+        <summary>현재 프로젝트 · Git 상태</summary>
+        <button id="gitRefresh" class="ghost">Git 상태 새로고침</button>
+        <p id="gitStatus" role="status"></p>
+        <div id="gitReview"></div>
+      </details>
+      <details id="projectVerification" hidden>
+        <summary>프로젝트 필수 검증</summary>
+        <p id="verificationProject"></p>
+        <label>필수 검증 명령 (JSON 인자 배열)<textarea id="verificationCommands" rows="5" spellcheck="false"></textarea></label>
+        <p>각 명령을 별도로 등록하세요. 모두 통과해야 완료합니다. 빈 배열 []은 필수 검증을 해제합니다.</p>
+        <button id="verificationSave">필수 검증 저장</button>
+      </details>
+      <details id="guidanceSettings">
+        <summary>설정 · 지침</summary>
+        <div id="guidanceEditor">
+        <div class="settings-refresh"><button id="guidanceFilesRefresh" class="ghost">지침·스킬 새로고침</button></div>
+        <p><span id="guidanceDescription">앱 공통·프로젝트 지침(AGENTS.md)을 관리합니다. 다음 턴에 자동 적용됩니다.</span></p>
+        <nav id="skillScopeTabs" class="plugin-tabs" aria-label="스킬 범위" hidden>
+          <button id="skillScopeUser" aria-pressed="false">앱 공통 · 0</button>
+          <button id="skillScopeProject" aria-pressed="true">현재 프로젝트 · 0</button>
+        </nav>
+        <div id="skillScopeContext" hidden><h3 id="skillScopeTitle"></h3><p id="skillScopeDescription"></p></div>
+        <label>기존 파일<select id="guidanceFile"><option value="">파일 선택</option></select></label>
+        <label id="guidanceScopeField">생성 위치<select id="guidanceScope"><option value="repo">현재 프로젝트</option><option value="user">앱 공통</option></select></label>
+        <button id="skillNew" hidden>새 스킬</button>
+        <label id="skillDescriptionField" hidden>설명 · 사용할 상황<input id="skillDescription" maxlength="4096" /></label>
+        <label id="guidanceNameField" hidden>스킬 폴더 이름<input id="guidanceName" maxlength="64" /></label>
+        <button id="guidanceNewAgents">AGENTS.md 생성 / 열기</button>
+        <label id="skillSearchField" hidden>이 범위에서 스킬 검색<input id="skillSearch" type="search" /></label>
+        <label id="skillFolderField" hidden><span id="skillFolderLabel">스킬 폴더 가져오기</span><input id="skillFolder" type="file" webkitdirectory multiple /></label>
+        <button id="guidanceNewSkill" hidden>Skill 생성 / 열기</button>
+        <div id="skillsCatalog" aria-label="스킬 활성 설정" hidden></div>
+        <p id="guidanceDraftStatus" role="status"></p>
+        <div id="guidanceEdit" hidden>
+          <p id="guidanceTarget"></p>
+          <label>Markdown 본문<textarea id="guidanceText" rows="12" spellcheck="false"></textarea></label>
+          <label><span id="guidanceUploadLabel">Markdown 파일 업로드</span><input id="guidanceUpload" type="file" accept=".md,text/markdown,text/plain" /></label>
+          <p id="guidanceLimit">AGENTS.md 32 KiB · UTF-8 Markdown. 업로드 후 저장을 눌러 적용하세요.</p>
+          <button id="guidanceSave">저장</button><button id="guidanceDiscard">편집 취소</button>
+        </div>
+        <p id="guidanceEditorStatus" role="status"></p>
+        <pre id="guidanceDiagnostics"></pre>
+        </div>
+      </details>
+      <details id="pluginSettings" class="plugin-settings">
+        <summary>설정 · 플러그인</summary>
+        <p class="plugin-intro">작업에 필요한 스킬과 도구 연결을 한곳에서 관리하세요.</p>
+        <nav class="plugin-tabs" aria-label="플러그인 관리">
+          <button id="pluginInstalledTab" aria-pressed="true">설치됨</button>
+          <button id="pluginSkillsTab" aria-pressed="false">스킬</button>
+          <button id="pluginMcpTab" aria-pressed="false">MCP 연결</button>
+        </nav>
+        <section id="pluginInstalled" aria-label="설치된 플러그인">
+          <div class="settings-refresh"><button id="pluginSyncClaude">Claude 설치 플러그인 가져오기</button> <button id="pluginRefresh" class="ghost">플러그인 목록 새로고침</button></div>
+          <div class="plugin-toolbar">
+            <label class="plugin-search">플러그인 검색<input id="pluginSearch" type="search" placeholder="이름 또는 설명으로 검색" maxlength="256" /></label>
+            <label>표시 범위<select id="pluginFilter"><option value="all">모든 플러그인</option><option value="user">앱 공통</option><option value="repo">현재 프로젝트</option></select></label>
+          </div>
+          <div class="plugin-toolbar">
+            <label>가져올 위치<select id="pluginScope"><option value="repo">현재 프로젝트</option><option value="user">앱 공통</option></select></label>
+            <label class="plugin-import">로컬 폴더 가져오기<input id="pluginFolder" type="file" webkitdirectory multiple /></label>
+          </div>
+          <p id="pluginStatus" role="status">플러그인 목록을 불러오세요.</p>
+          <p id="pluginError" role="alert"></p>
+          <div id="pluginCards" class="plugin-grid"></div>
+          <section id="pluginDetail" class="plugin-detail" hidden aria-label="플러그인 상세"></section>
+          <div id="pluginDiagnostics" aria-label="플러그인 진단"></div>
+        </section>
+        <section id="pluginSkills" hidden aria-label="스킬">
+          <p>앱 공통·프로젝트별 스킬을 관리합니다. 플러그인에 포함된 스킬의 편집은 플러그인 상세에서 확인하세요.</p>
+          <details id="skillsSettings">
+            <summary>스킬 관리</summary>
+          </details>
+        </section>
+        <section id="pluginMcp" hidden aria-label="MCP 연결">
+          <h2>MCP 연결</h2>
+            <p>한 번 등록하면 Claude, ChatGPT/Codex, Gemini/Antigravity가 공통으로 사용합니다. OAuth 인증은 현재 제공자·계정별로 관리합니다.</p>
+          <label>MCP JSON<textarea id="pluginMcpJson" rows="8" spellcheck="false">[]</textarea></label>
+          <button id="pluginMcpLoad">연결 불러오기</button><button id="pluginMcpSave" disabled>연결 저장</button>
+          <p id="pluginMcpStatus" role="status"></p>
+          <div id="pluginMcpConnections"></div>
+        </section>
+      </details>
+      <div id="columns" class="columns">
+        <aside>
+          <label
+            >대화 검색<input
+              id="search"
+              maxlength="256"
+              placeholder="제목·메시지" /></label
+          ><button id="find">검색</button><button id="new">새 대화</button>
+          <div id="history"></div>
+        </aside>
+        <section>
+          <div class="tools">
+            <button id="workToggle" hidden aria-controls="workPanel" aria-expanded="false">작업 내역</button>
+            <label
+              >모델<select id="model" aria-label="모델">
+                <option value="">기본 모델</option>
+              </select></label
+            ><button id="rename">제목 변경</button
+            ><button id="delete">대화 삭제</button>
+          </div>
+          <div id="commitProposal" class="tools" role="status" hidden>
+            <span>현재 프로젝트에 에이전트 커밋 제안이 있습니다. 파일과 diff를 검토한 뒤 승인하세요.</span>
+            <button id="gitReviewOpen" aria-controls="projectGit">커밋 제안 검토</button>
+          </div>
+          <div id="messages" role="log" aria-label="대화 메시지" aria-live="polite" tabindex="0"></div>
+          <button id="jumpLatest" hidden>최신 메시지로 이동 ↓</button>
+          <fieldset id="codexPolicy" hidden>
+            <legend>Codex 실행 정책</legend>
+            <label>승인 정책<select id="approvalPolicy"><option value="untrusted">untrusted · 신뢰되지 않은 명령 확인</option><option value="on-request">on-request · 모델이 요청할 때 확인</option><option value="never">never · 승인 요청 안 함</option></select></label>
+            <label>샌드박스<select id="sandbox"><option value="read-only">read-only · 읽기 전용</option><option value="workspace-write">workspace-write · 작업공간 쓰기</option><option value="danger-full-access">danger-full-access · 전체 접근</option></select></label>
+            <small>never도 샌드박스 제한을 따릅니다. danger-full-access는 파일 시스템과 네트워크 접근을 제한하지 않습니다.</small>
+          </fieldset>
+          <div id="notices" aria-live="polite"></div>
+          <div id="interactions"></div>
+          <section aria-label="에이전트 제안">
+            <h2>에이전트 제안</h2>
+            <p>에이전트가 필요하다고 제안한 스킬과 MCP 서버입니다. 내용을 확인하고 승인하면 현재 작업공간(.agents)에 설치되며, 기존 항목은 덮어쓰지 않습니다. 승인하기 전에는 아무것도 설치하거나 실행하지 않습니다.</p>
+            <button id="skillProposalsRefresh" class="ghost">제안 새로 고침</button>
+            <div id="skillProposals" aria-live="polite"></div>
+          </section>
+          <div id="attachments"></div>
+          <div class="tools">
+            <span id="guidanceStatus" role="status">지침 확인 필요</span>
+            <details id="guidance">
+              <summary id="skillsSummary">플러그인</summary>
+              <p>선택한 스킬은 현재 턴에 적용됩니다.</p>
+              <div id="skills" aria-label="스킬 목록"></div>
+            </details>
+          </div>
+          <div id="selectedSkills" class="tools" aria-label="선택한 스킬"></div>
+          <label>메시지<textarea id="prompt" rows="3"></textarea></label>
+          <div class="tools">
+            <input
+              id="files"
+              type="file"
+              multiple
+              accept="text/*,.rs,.json,.md,.toml,.js,.ts,.py,image/png,image/jpeg,image/webp"
+            /><button id="send">보내기</button
+            ><button id="cancel" disabled>실행 취소</button>
+          </div>
+          <small id="support"></small>
+        </section>
+        <aside id="workPanel" aria-label="작업 내역" hidden>
+          <div class="tools"><h2>작업 내역</h2><button id="workClose" aria-label="작업 패널 접기">접기</button></div>
+          <div id="timeline" role="log" aria-label="실행 내역" tabindex="0"></div>
+        </aside>
+      </div>
+      <details id="control">
+        <summary>내장 브라우저 · Windows 제어 · 캡처</summary>
+        <p>
+          수동 제어입니다. AI 도구 권한과는 별개입니다. Windows 제어는 서버가
+          실행되는 전체 데스크톱에 적용됩니다.
+        </p>
+        <div class="tools">
+          <label
+            >대상<select id="target" aria-label="대상">
+              <option value="browser">내장 브라우저</option>
+              <option value="desktop">Windows 데스크톱</option>
+            </select></label
+          ><button id="controlRefresh">지원 확인</button
+          ><span id="controlStatus"></span>
+        </div>
+        <div id="browserControls" class="tools">
+          <label
+            >주소<input
+              id="url"
+              type="url"
+              value="https://example.com" /></label
+          ><label><input id="mobile" type="checkbox" />모바일 화면</label
+          ><button id="open">열기</button><button id="reload" class="ghost">새로 고침</button>
+        </div>
+        <button id="grant" hidden>Windows 캡처·제어 10분 허용</button
+        ><button id="stopControl">브라우저 종료 / Windows 제어 끄기</button>
+        <div class="tools">
+          <button id="capture">화면 갱신·캡처</button
+          ><button id="attachCapture">현재 캡처 첨부</button
+          ><label
+            ><input id="clickControl" type="checkbox" />화면 클릭으로
+            조작</label
+          >
+        </div>
+        <img id="frame" alt="캡처 화면" hidden />
+        <div class="tools">
+          <label>입력 텍스트<input id="inputText" maxlength="4096" /></label
+          ><button id="type">텍스트 입력</button
+          ><label>키<select id="key" aria-label="키"></select></label
+          ><button id="press">키 전송</button
+          ><button id="up">위로 스크롤</button
+          ><button id="down">아래로 스크롤</button>
+        </div>
+      </details>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

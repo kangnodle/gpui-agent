@@ -1,0 +1,12 @@
+[package]
+name = "gpui-agent-presentation"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+gpui-agent-contracts.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

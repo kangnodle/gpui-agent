@@ -1,0 +1,73 @@
+# cargo-deny policy: supply-chain gate for the whole workspace.
+# Run with `cargo harness deny` (or `cargo deny check`).
+
+[graph]
+  all-features = false
+  # Resolve the same target set the product ships on, so licenses/bans of
+  # platform-only crates are judged too.
+  targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+  ]
+
+[advisories]
+  # Each ignore needs a reason and an exit condition.
+  ignore = []
+  unmaintained = "workspace"
+  yanked = "deny"
+
+[licenses]
+  allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CDLA-Permissive-2.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+  ]
+  confidence-threshold = 0.9
+
+[bans]
+  # Duplicate majors are reported, not fatal. GPUI pins its own graph, so every
+  # crate reachable from gpui-kit is excluded from this check; a duplicate of a
+  # crate outside that tree still warns.
+  multiple-versions = "warn"
+  skip-tree = [
+    {crate = "gpui-kit@0.8.0", reason = "GPUI pins its own dependency graph; revisit when gpui-kit is bumped."},
+  ]
+  # Workspace path dependencies carry an explicit version in the root
+  # `[workspace.dependencies]`, so any wildcard reported here is a real one.
+  wildcards = "warn"
+  highlight = "all"
+
+  # Clean Architecture: inner layers must stay free of host-I/O and UI stacks.
+  # `wrappers` limits who may pull a crate in; `deny` forbids it outright.
+  # (Layer edges between workspace crates are enforced by the architecture
+  # and harness layer tests; see tools/layers.toml.)
+  [[bans.deny]]
+    crate = "openssl"
+    reason = "TLS is rustls-only; native OpenSSL breaks hermetic builds"
+  [[bans.deny]]
+    crate = "openssl-sys"
+    reason = "TLS is rustls-only; native OpenSSL breaks hermetic builds"
+  [[bans.deny]]
+    crate = "native-tls"
+    reason = "TLS is rustls-only"
+
+[sources]
+  allow-git = []
+  allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+  unknown-git = "deny"
+  unknown-registry = "deny"

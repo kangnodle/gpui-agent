@@ -1,0 +1,2392 @@
+[DOCUMENT]
+TITLE: Harness requirements
+
+[[SECTION]]
+TITLE: Harness acceptance criteria
+
+[TEXT]
+STATEMENT: >>>
+The first acceptance scenario is: given a checkout-local home and a fixture
+provider, when a client submits the same command twice through authenticated MCP,
+then one durable job is created, its events are readable, and reopening the host
+preserves the result without replaying interrupted external work.
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-SCOPE
+STATUS: Active
+TITLE: Scope
+STATEMENT: >>>
+The first acceptance scenario is covered through public interfaces without real credentials.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+
+[REQUIREMENT]
+UID: HARNESS-INSTRUCTIONS
+STATUS: Active
+TITLE: Instructions
+STATEMENT: >>>
+AGENTS.md is the common entry point; CLAUDE.md mirrors it.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: AGENTS.md
+- TYPE: File
+  VALUE: CLAUDE.md
+
+[REQUIREMENT]
+UID: HARNESS-COMMANDS
+STATUS: Active
+TITLE: Commands
+STATEMENT: >>>
+mise tasks wrap ``cargo harness``, which provides doctor, setup, fmt, lint, test, check, dev, client-fixture, and audit (deny, unused, unsafe).
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: mise.toml
+- TYPE: File
+  VALUE: crates/harness/tests/mise.rs
+- TYPE: File
+  VALUE: crates/harness/tests/cli.rs
+
+[REQUIREMENT]
+UID: HARNESS-ISOLATION
+STATUS: Active
+TITLE: Isolation
+STATEMENT: >>>
+dev uses this checkout's .dev/home and an OS-assigned server port; Rust is pinned to nightly-2026-09-27 in ``rust-toolchain.toml``.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: rust-toolchain.toml
+- TYPE: File
+  VALUE: crates/harness/tests/cli.rs
+
+[REQUIREMENT]
+UID: HARNESS-BEHAVIOR-FIRST
+STATUS: Active
+TITLE: Behavior first
+STATEMENT: >>>
+New behavior has a failing public-boundary test before implementation.
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-ARCHITECTURE
+STATUS: Active
+TITLE: Architecture
+STATEMENT: >>>
+Existing inward-dependency and AST purity tests and the ``tools/layers.toml`` layer check remain green.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+- TYPE: File
+  VALUE: crates/harness/tests/layers.rs
+- TYPE: File
+  VALUE: tools/layers.toml
+
+[REQUIREMENT]
+UID: HARNESS-CI
+STATUS: Active
+TITLE: CI
+STATEMENT: >>>
+``mise run check`` runs on Linux and Windows; Windows also lints and tests the desktop. A separate job runs ``mise run audit``.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: .github/workflows/ci.yml
+
+[REQUIREMENT]
+UID: HARNESS-STATIC-FEEDBACK
+STATUS: Active
+TITLE: Static feedback
+STATEMENT: >>>
+Clippy denies warnings; architecture tests guard policy and dependencies.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/application/tests/architecture.rs
+
+[REQUIREMENT]
+UID: HARNESS-CLIENT-VERIFICATION
+STATUS: Active
+TITLE: Client verification
+STATEMENT: >>>
+client-fixture serves the real web client for submit/approve, cancel, and reconnect checks with screenshots and console evidence.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/harness/tests/client_fixture.rs
+- TYPE: File
+  VALUE: apps/web/test.cjs
+
+[REQUIREMENT]
+UID: HARNESS-FEEDBACK
+STATUS: Active
+TITLE: Feedback
+STATEMENT: >>>
+MCP responses and diagnostics share a host-generated request ID; successful job calls also carry durable job and operation IDs.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/http.rs
+
+[REQUIREMENT]
+UID: HARNESS-MCP
+STATUS: Active
+TITLE: MCP
+STATEMENT: >>>
+/mcp supports initialization, discovery, and authorized application-service calls.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/mcp_sessions.rs
+
+[REQUIREMENT]
+UID: HARNESS-PROVIDERS
+STATUS: Active
+TITLE: Providers
+STATEMENT: >>>
+Native fixtures cover three providers; recordings tests redact/capture/replay status traffic and replay a committed recording from an installed Codex runtime.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+- TYPE: File
+  VALUE: crates/agent/tests/recordings.rs
+
+[REQUIREMENT]
+UID: HARNESS-DURABILITY
+STATUS: Active
+TITLE: Durability
+STATEMENT: >>>
+Command receipts and jobs commit together; retries and host recovery are tested.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+
+[REQUIREMENT]
+UID: HARNESS-EXTENSIONS
+STATUS: Active
+TITLE: Extensions
+STATEMENT: >>>
+Existing context snapshot and checkpoint API tests pass.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/conversation_extensions.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[TEXT]
+STATEMENT: >>>
+Live-account acceptance for a provider is a two-turn CLI check with a real
+authenticated application profile: the first turn returns a fresh random marker,
+and a second CLI/native process resumes the same session and recalls it without
+the marker in the second prompt. Evidence retains only pass/fail metadata and a
+session fingerprint, excluding prompts, responses, credentials and account IDs.
+Credentials stay in the application profile and are never uploaded to GitHub.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Antigravity runtime versions
+
+[REQUIREMENT]
+UID: HARNESS-RUNTIME-1
+STATUS: Active
+TITLE: Vetted and discovered version catalog
+STATEMENT: >>>
+Accounts → Gemini / Antigravity → Runtime management lists existing vetted
+versions and versions discovered through **Check for updates**. Gemini /
+Antigravity uses GPUI-kit 0.8.0's single-select ``Combobox`` and one review/install
+button for the chosen version. Keyboard Up/Down/Enter select a version without
+starting installation. Refresh retains an available selection and falls back to
+the first release if it disappears; review resolves the refreshed checksum.
+The ACP registry's latest platform archive and
+SHA-256 are saved atomically to ``<explicit-home>/runtimes/antigravity/releases.json``;
+later checks and host restarts retain earlier observed versions. Inspect reads
+this catalog offline. This is a known/observed catalog, not an exhaustive upstream
+release history. Existing Windows x64 and macOS x64/arm64 support remains.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/runtime_catalog.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/runtimes.rs
+- TYPE: File
+  VALUE: crates/api/tests/maintenance.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[REQUIREMENT]
+UID: HARNESS-RUNTIME-2
+STATUS: Active
+TITLE: Compatible runtime release API
+STATEMENT: >>>
+The additive ``RuntimeInfo.releases`` list uses the existing authenticated runtime
+API and application service. ``release`` remains compatible with older clients;
+new desktop clients also accept old single-release responses. Web/CLI currently
+have no runtime-management UI, and scoped MCP has no install tool. No provider
+protocol, account credentials or global developer profiles are changed.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/runtime_catalog.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/runtimes.rs
+- TYPE: File
+  VALUE: crates/api/tests/maintenance.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[REQUIREMENT]
+UID: HARNESS-RUNTIME-3
+STATUS: Active
+TITLE: Release metadata validation and installation
+STATEMENT: >>>
+Pure metadata validation accepts only version/platform-matching Google URLs and
+SHA-256 digests. The existing installer verifies downloads, archives and the native
+protocol before atomic activation and preserves previous installation directories.
+BDD regressions cover old/new desktop selection and exact install requests,
+authenticated HTTP, accumulated catalog/restart, invalid metadata/checksums and
+legacy response compatibility. An opt-in (ignored) live integration test installs
+the latest and a previous Google release in a temporary home, validating the ACP
+runtime and retaining both; it does not log in or run model inference.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/runtime_catalog.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/runtimes.rs
+- TYPE: File
+  VALUE: crates/api/tests/maintenance.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-domain --test runtime_catalog
+   cargo harness test --package gpui-agent-infrastructure --test runtimes
+   cargo harness test --package gpui-agent-api --test maintenance
+   cargo harness test --package gpui-agent-desktop --filter given_old_and_new_antigravity_versions
+   cargo test --locked -p gpui-agent-infrastructure --test runtimes given_live_google_releases -- --ignored --nocapture
+
+Source: https://raw.githubusercontent.com/agentclientprotocol/registry/main/antigravity-acp/agent.json
+
+Native visual acceptance covers the listed versions, old/new review URLs and
+checksums, and cancellation without installation.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Common MCP registration
+
+[REQUIREMENT]
+UID: HARNESS-MCP-REGISTRY-1
+STATUS: Active
+TITLE: Shared MCP catalog for all providers
+STATEMENT: >>>
+Settings → Plugins → MCP registers standalone servers once for Claude, Codex and
+Antigravity. The shared catalog is ``mcp.json`` in the explicit application home;
+``GET/PUT /v1/mcp`` is the provider-independent endpoint. Existing
+``/v1/mcp/{provider}`` routes remain compatible aliases. Server composition,
+desktop, web and CLI use the same common catalog. A native Config without
+``mcp_home`` retains its standalone-profile behavior for adapter consumers.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/http.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[REQUIREMENT]
+UID: HARNESS-MCP-REGISTRY-2
+STATUS: Active
+TITLE: Legacy profile deduplication and preservation
+STATEMENT: >>>
+Before the first shared save, identical legacy definitions across default and
+named account profiles are deduplicated in memory. Conflicting names require
+review of the original profile files; reading never rewrites them. A shared
+save, including ``[]``, becomes authoritative and preserves original profile files
+and OAuth credentials. OAuth remains scoped by provider/account; its account
+selector appears only when OAuth authentication needs management.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/http.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[REQUIREMENT]
+UID: HARNESS-MCP-REGISTRY-3
+STATUS: Active
+TITLE: Registration does not select tools
+STATEMENT: >>>
+Registration does not select tools. The desktop conversation-header checkboxes
+still control optional MCP per turn, and new conversations start empty. Saving
+refreshes the checkbox catalog without changing existing choices. A common
+update is rejected while any provider has pending jobs or an active profile
+operation. Enabled plugin names are checked across all available registered
+workspaces while holding the same catalog lock as plugin activation.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/http.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[TEXT]
+STATEMENT: >>>
+Authenticated HTTP tests cover common/compatibility routes, three-provider
+visibility, legacy conflicts and preservation, invalid-update rollback, empty
+saves and scoped OAuth. Native process fixtures pass one shared file to all
+three provider adapters and cover selected/empty/omitted choices without writes.
+Repository regressions reproduce cross-workspace plugin collisions and catalog
+lock contention. Rendered desktop tests cover common registration and OAuth
+target switching without discarding the common editor.
+
+Native fixture visual acceptance covers registration without provider tabs,
+all-provider authenticated reads, checkbox selection, updated catalogs preserving
+existing choices, and new-chat reset, without live provider inference or a real
+remote MCP service.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Conversation extension quick check
+
+[REQUIREMENT]
+UID: HARNESS-EXTENSIONS-1
+STATUS: Active
+TITLE: Unified plugin picker per conversation
+STATEMENT: >>>
+The desktop header has one **Connect plugins / 플러그인 연결** picker for installed
+plugins, skills and configured MCP servers. Search and type filters narrow the
+checkbox list. Only checked entries appear in the header with their type icon and
+name. Unchecking affects subsequent turns of this conversation, preserving global
+plugin/skill enablement, MCP configuration and OAuth state. New chats start empty;
+drafts and saved guidance receipts retain the original conversation's choices.
+Editing only package/MCP choices also permits a revised question to be submitted.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/conversation_extensions.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests/conversation_context.rs
+
+[REQUIREMENT]
+UID: HARNESS-EXTENSIONS-2
+STATUS: Active
+TITLE: Optional extensions contract
+STATEMENT: >>>
+The optional chat/revision ``extensions`` contract is applied in the application
+Guidance path and shared native Config filter. Omitted selection preserves
+existing web/CLI/HTTP/MCP callers. Explicit empty selection suppresses optional
+MCP and unselected skill discovery while retaining host tools and approvals.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/conversation_extensions.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests/conversation_context.rs
+
+[TEXT]
+STATEMENT: >>>
+Rendered desktop tests guard against a separate Skills button, dropped new-chat
+draft choices and disabled extension-only revisions. Domain tests cover
+validation, empty/omitted distinction and revisions; infrastructure tests
+exercise real temporary plugin/guidance files, and history tests reopen/fork the
+existing selection receipt. Native protocol selection tests cover all three
+providers without real credentials or remote inference.
+
+Native fixture acceptance checks the unified picker, selected header icons/names,
+direct checkbox removal, unchanged installed plugin/MCP state via authenticated
+reads, and new-chat reset. This is fixture visual acceptance, not live provider
+acceptance.
+
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-domain --test conversation_extensions
+   cargo harness test --package gpui-agent-desktop
+   cargo test --locked -p gpui-agent --test protocols -- --selection-only
+   cargo harness check --include-desktop
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Gemini / Antigravity account setup on macOS
+
+[REQUIREMENT]
+UID: HARNESS-MACOS-SETUP-1
+STATUS: Active
+TITLE: Vetted macOS runtime installation
+STATEMENT: >>>
+Given a macOS x64 or arm64 host without Antigravity, when **Settings → Accounts →
+Gemini / Antigravity → Find a version to install** is selected, then the runtime
+panel offers the vetted Google ACP 1.4.3 archive for that architecture. Review and
+install it before selecting **Sign in**. Installation checks the archive's SHA-256
+and native ACP initialization before activating it, preserves earlier versions,
+and does not start Google OAuth automatically. Windows x64 retains its vetted
+1.4.1 release; other platforms can still use explicit runtime paths.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/tests/runtimes.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[REQUIREMENT]
+UID: HARNESS-MACOS-SETUP-2
+STATUS: Active
+TITLE: Shared runtime service for desktop and server
+STATEMENT: >>>
+This uses the existing application runtime service and HTTP endpoint for both
+the embedded desktop host and standalone server. Desktop account refresh enables
+login after installation. Web account login and CLI explicit executable/harness
+options retain their existing behavior; no HTTP, MCP, or provider contract changes.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/tests/runtimes.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-infrastructure --test runtimes
+   cargo harness test --package gpui-agent-desktop --filter given_a_reviewed_runtime
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Desktop right-side panels
+
+[REQUIREMENT]
+UID: HARNESS-PANELS-1
+STATUS: Active
+TITLE: Stacked work and reference panels
+STATEMENT: >>>
+Work activity and reference conversations share a resizable right column. When
+both are open, work is above the reference with a draggable horizontal divider.
+Their toolbar buttons and close buttons operate independently; closing one gives
+the remaining panel the whole column. Each panel has its own scroll position.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/presentation/tests/panels.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[REQUIREMENT]
+UID: HARNESS-PANELS-2
+STATUS: Active
+TITLE: Persisted panel layout
+STATEMENT: >>>
+Dragging the column's left edge changes its shared width. Double-clicking that
+edge restores 320 px; double-clicking the horizontal divider restores an equal
+split. Width, split ratio, and both visibility preferences are saved in the
+desktop home's ``ui-right-panels.json``. Saved widths from ``ui-reference-width``
+are used when no new layout is available. Invalid dimensions fall back to safe
+defaults. Window constraints preserve a 480 px chat at desktop widths without
+overwriting the preferred width; reopening a panel restores the split ratio.
+The reference stack keeps the existing focused view at narrow widths, while
+work alone appears below chat. The selected reference conversation is not part
+of the saved layout.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/presentation/tests/panels.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-presentation --test panels
+   cargo harness test --package gpui-agent-desktop --filter given_activity_and_reference
+   cargo harness test --package gpui-agent-desktop --filter given_stacked_panels
+   cargo harness test --package gpui-agent-desktop --filter reference_drag_preserves
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Project Git review
+
+[REQUIREMENT]
+UID: HARNESS-GIT-REVIEW-1
+STATUS: Active
+TITLE: Git as a project tool
+STATEMENT: >>>
+Git is a project/worktree tool beside the desktop conversation, rather than a
+settings menu. The toolbar opens changed files, per-file staged/unstaged diffs,
+checkpoints and the existing PR flow. At the default desktop width, chat and Git
+remain visible together; narrow windows use the existing focused tool view.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: apps/desktop/src/tests/project_git.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+- TYPE: File
+  VALUE: apps/web/test.cjs
+
+[REQUIREMENT]
+UID: HARNESS-GIT-REVIEW-2
+STATUS: Active
+TITLE: Reviewed commit proposals
+STATEMENT: >>>
+Scoped agents can call ``workspace_propose_commit`` without general host write
+authority. A proposal persists a message, exact paths and the reviewed
+branch/HEAD/index/worktree version; it neither stages nor commits. Desktop and
+web show a review notice. Operators can edit the message and select files before
+explicitly approving. Approval rejects stale versions and preserves unrelated
+staging, including intent-to-add files. Renames include source removal without
+committing unrelated files recreated at the old path. A commit is published to
+the reviewed branch with an expected-parent comparison.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: apps/desktop/src/tests/project_git.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+- TYPE: File
+  VALUE: apps/web/test.cjs
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-desktop --filter project_git
+   cargo harness test --package gpui-agent-api --test project_tools
+   cargo harness test --package gpui-agent-infrastructure
+   node --test apps/web/test.cjs
+   cargo harness check --include-desktop
+
+Protocol fixtures and temporary Git repositories validate the proposal and
+operator execution boundaries without live provider inference.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Required checks for ordinary chat jobs
+
+[TEXT]
+STATEMENT: >>>
+In desktop project settings or the web client's **프로젝트 필수 검증** section,
+save the project's required commands as JSON argv arrays, for example:
+
+.. code-block:: json
+
+   [["cargo", "harness", "test", "--package", "gpui-agent-domain"], ["cargo", "harness", "fmt"]]
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-VERIFICATION-1
+STATUS: Active
+TITLE: Required command configuration
+STATEMENT: >>>
+Each command runs directly in the job's workspace, without an implicit shell.
+Use an explicit shell executable when a project requires shell syntax. The
+operator-only ``PUT /v1/projects/{id}/verification`` accepts up to 8 ``commands``,
+``max_attempts`` (default 3, maximum 10), and ``timeout_seconds`` per command
+(default 300, maximum 3600). An empty command list disables required checks.
+The UI preserves existing attempt and timeout settings when saving commands.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/tool_activity.rs
+
+[REQUIREMENT]
+UID: HARNESS-VERIFICATION-2
+STATUS: Active
+TITLE: Repair loop gates completion
+STATEMENT: >>>
+Given a configured project, when an ordinary durable chat job's provider finishes,
+the host runs every required command. A failure starts a repair turn in the same
+conversation and reruns every command. Only zero exit codes for all commands and
+unchanged source fingerprints permit the job's completed event. Exhaustion,
+timeout, missing executables, fingerprint errors, and cancellation cannot produce
+a successful completion. The plan is captured at job start; changing settings
+does not weaken an already running job's checks.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/tool_activity.rs
+
+[REQUIREMENT]
+UID: HARNESS-VERIFICATION-3
+STATUS: Active
+TITLE: Verification receipts and source fingerprints
+STATEMENT: >>>
+The activity panel retains each attempt, command, exit code, bounded stdout/stderr,
+Git HEAD (when present), and a SHA-256 fingerprint of source paths and contents.
+Git projects include tracked and untracked nonignored files, so uncommitted
+changes are represented. Plain folders include regular files except host state.
+Generated files should be ignored in Git. External links, unsupported non-file
+entries, and source sets above the fingerprint limits fail closed. Receipts
+survive history reload; interrupted jobs are not silently marked completed.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/tool_activity.rs
+
+[REQUIREMENT]
+UID: HARNESS-VERIFICATION-4
+STATUS: Active
+TITLE: Durable submission paths
+STATEMENT: >>>
+Desktop, web, and scoped MCP submissions use the durable Jobs service. The legacy
+HTTP ``POST /v1/providers/{provider}/chat`` endpoint rejects configured projects
+and directs callers to ``/v1/providers/{provider}/jobs``. Standalone CLI ``ask``
+retains its existing direct execution path. Registered commands determine
+coverage; a zero exit code alone does not establish that a project has meaningful tests.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_verification.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/tool_activity.rs
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-domain --test project_verification
+   cargo harness test --package gpui-agent-infrastructure --test project_verification
+   cargo harness test --package gpui-agent-api --test project_verification
+   cargo harness test --package gpui-agent-presentation --test tool_activity
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Pull request tools
+
+[TEXT]
+STATEMENT: >>>
+PR tools reuse scoped Jobs/Workspaces:
+
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-api --test project_tools --filter pull_requests
+   cargo harness test --package gpui-agent-infrastructure --test pull_requests
+   cargo harness test --package gpui-agent-api --test pull_requests
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-PR-1
+STATUS: Active
+TITLE: Pull request tools reuse scoped Jobs and Workspaces
+STATEMENT: >>>
+The first covers authenticated link authorization/idempotency, the second SQLite
+restart/CAS/queue rollback/failure limits, and the third native gh reads, watch
+notifications, all three provider approvals/results and head/base staleness.
+The gh/provider executables are fixtures in a temporary home; these checks do
+not contact a live PR. Shared server/embedded desktop MCP and native bridges
+use the same adapter; no new web/desktop/CLI product flow is introduced.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/pull_requests.rs
+- TYPE: File
+  VALUE: crates/api/tests/pull_requests.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Attachments
+
+[REQUIREMENT]
+UID: HARNESS-ATTACHMENTS-1
+STATUS: Active
+TITLE: Attachment ingress through Jobs
+STATEMENT: >>>
+Attachment ingress and delivery share Jobs with the existing clients. Both
+conversation_send and enqueue_job accept inline attachments plus attachment_ids;
+inline values precede resolved IDs, with a combined maximum of eight and 4 MiB.
+Empty text is accepted only with attachments. Text/image validation and native
+provider mapping are reused. Upload alone never executes a provider turn.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/attachments.rs
+
+[REQUIREMENT]
+UID: HARNESS-ATTACHMENTS-2
+STATUS: Active
+TITLE: Scoped upload identity and workspace snapshots
+STATEMENT: >>>
+Upload IDs belong to the canonical provider/account/workspace JobScope. A
+normalized-content fingerprint reuses identical uploads, even at the 16-per-scope
+or 128-per-host limit. Metadata listing omits bytes and source paths. Workspace
+snapshots use FileContextReader: text supports one-based ranges (16 MiB source,
+256 KiB selected text), and image reads stop at 2 MiB + 1 with no line ranges.
+The existing HTTP text-context endpoint keeps its behavior. Path validation and
+canonical containment reject traversal, Git metadata and links outside the root.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/attachments.rs
+
+[REQUIREMENT]
+UID: HARNESS-ATTACHMENTS-3
+STATUS: Active
+TITLE: Atomic upload admission and deletion
+STATEMENT: >>>
+Uploads persist in jobs.sqlite3 until explicit deletion. Admission resolves IDs,
+validates combined size, copies bytes into the job and commits its command
+receipt in one SQLite transaction. A receipt is checked before resolving IDs,
+so an identical retry can return a retained job after staging deletion. Fresh
+commands cannot reference a deleted/foreign ID; failed validation creates neither
+a job nor receipt. Upload deletion does not alter existing jobs or history.
+Worktree removal also checks staged uploads under its workspace write lease;
+delete them first so removal cannot orphan an inaccessible upload scope.
+Existing empty-ID command fingerprints remain compatible with HTTP retries.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/attachments.rs
+
+[TEXT]
+STATEMENT: >>>
+``cargo test --locked -p gpui-agent-api --test jobs -- --attachments-only`` covers
+authenticated inline/uploaded text and image delivery through all three native
+fixtures, attachment-only messages, immutable snapshots/history, retries,
+read-only and scope denials, invalid payloads and secret-free host diagnostics.
+``--uploads-only`` runs just the upload cases. Repository restart, quota/dedup and
+atomic aggregate-limit failures are covered by ``cargo harness test --package
+gpui-agent-infrastructure --test attachments``. No live account inference is used.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: MCP transport and session credentials
+
+[REQUIREMENT]
+UID: HARNESS-MCP-SESSION-1
+STATUS: Active
+TITLE: Stateless Streamable HTTP endpoint
+STATEMENT: >>>
+The isolated server exposes ``/mcp`` using stateless Streamable HTTP with JSON
+responses. Supported protocol revisions are 2025-03-26, 2025-06-18, and 2025-11-25.
+GET returns 405 because this endpoint does not offer a server SSE stream.
+Each POST accepts one JSON-RPC message; send ``Accept: application/json,
+text/event-stream``, ``Content-Type: application/json``, and the negotiated
+``MCP-Protocol-Version``. See the official
+`transport <https://modelcontextprotocol.io/specification/2025-11-25/basic/transports>`__
+and `tool <https://modelcontextprotocol.io/specification/2025-11-25/server/tools>`__
+contracts used for this implementation.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/mcp_sessions.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp_sessions.rs
+
+[REQUIREMENT]
+UID: HARNESS-MCP-SESSION-2
+STATUS: Active
+TITLE: Operator token handling
+STATEMENT: >>>
+The server prints token **paths**, not values. ``mcp-read.token`` grants only MCP
+reads; the existing API token grants environment-wide write authority. These
+operator credentials are never injected into providers.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/mcp_sessions.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp_sessions.rs
+
+[REQUIREMENT]
+UID: HARNESS-MCP-SESSION-3
+STATUS: Active
+TITLE: Scoped session bridge
+STATEMENT: >>>
+The server and embedded desktop automatically inject ``gpui-agent-session``, a
+stdio bridge to the host's loopback MCP endpoint, into each provider process
+running a prompt. Credentials are unique to that execution and bound to its
+provider, account, and canonical workspace path. Sessions can read only matching
+jobs, events and conversations owned by that scope. By default they cannot submit, cancel or update history. Start the owning
+host with ``--mcp-write`` (or ``cargo harness dev --mcp-write``) to allow
+these write operations. Ordinary jobs remain in the same scope. A remote desktop client cannot grant
+permissions on its remote host. Omitted account/workspace arguments resolve to
+the calling session, not another environment's default workspace.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/mcp_sessions.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp_sessions.rs
+
+[REQUIREMENT]
+UID: HARNESS-MCP-SESSION-4
+STATUS: Active
+TITLE: Session token lifetime and revocation
+STATEMENT: >>>
+Tokens expire after 900 seconds using a monotonic clock, and are revoked when the
+provider invocation completes, fails, times out, or is cancelled. Resume starts a
+new process and mints a fresh token. Host shutdown revokes all tokens and closes
+admission; restart creates a new in-memory registry. No session credentials are
+stored in SQLite or profile settings, and debug output redacts the token.
+Codex/Claude receive secrets through child-process environment variables; ACP
+receives the bridge environment through its private session request. Arguments
+contain only the host executable and ``--mcp-stdio``. The bridge never forwards
+operator tokens, uses no proxy, and does not reauthenticate an expired credential.
+Antigravity must advertise MCP stdio support; missing support fails the prompt
+with an actionable error instead of silently removing the security boundary.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/mcp_sessions.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/mcp_sessions.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: MCP tools
+
+[REQUIREMENT]
+UID: HARNESS-MCP-TOOLS-1
+STATUS: Active
+TITLE: Tool catalog and access levels
+STATEMENT: >>>
+.. list-table::
+   :header-rows: 1
+
+   * - Tool
+     - Access
+     - Result
+   * - list_jobs
+     - Read
+     - Durable environment jobs
+   * - get_job
+     - Read
+     - Original request and current job state
+   * - get_job_events
+     - Read
+     - Persisted events after a sequence cursor
+   * - enqueue_job
+     - Write
+     - Accepted durable job, not a completed provider turn
+   * - cancel_job
+     - Write
+     - Cancellation requested; observe events for completion
+   * - conversation_list
+     - Read
+     - Live offset pages of saved conversations, with durable execution state
+   * - conversation_search
+     - Read
+     - Literal title/content search and bounded matching-message previews
+   * - conversation_read
+     - Read
+     - Unicode-safe message pages without native session IDs or attachment bytes
+   * - conversation_rename
+     - Write
+     - Rename through existing history validation and active-turn checks
+   * - conversation_organize
+     - Write
+     - Set/clear pinned and archived state; omitted fields are preserved
+   * - conversation_send
+     - Write
+     - Idempotent durable message delivery, or new conversation when id is omitted
+   * - conversation_wait
+     - Read
+     - Wait for a selected durable run without cancelling it on timeout
+   * - conversation_interrupt
+     - Write
+     - Interrupt a running/waiting or selected queued run; preserve terminal results
+   * - conversation_fork
+     - Write
+     - Idle branch through a completed assistant boundary, with an independent native session
+   * - conversation_merge_back
+     - Write
+     - Persist branch-only context for an ancestor's next admitted turn
+   * - conversation_transfers
+     - Read
+     - Cursor pages of durable transfer metadata and pending/attached state
+   * - attachment_upload
+     - Write
+     - Validated scoped upload, metadata receipt and identical-content ID reuse
+   * - attachment_from_workspace
+     - Write
+     - Scoped text/line-range or image snapshot; returns metadata without bytes
+   * - attachment_list
+     - Read
+     - At most 16 scoped upload metadata records; no content or source paths
+   * - attachment_delete
+     - Write
+     - Delete staging bytes; accepted job/history copies and retries remain valid
+   * - get_pending_questions
+     - Read
+     - Current live native questions, choices and one-time request ID
+   * - answer_questions
+     - Operator write
+     - Relay user answers or skip; never tool approval
+   * - browser_open
+     - Write
+     - Owned isolated Chromium page and initial bounded DOM snapshot
+   * - browser_render_html
+     - Write
+     - Self-contained HTML in a fresh offline sandbox; returns its DOM snapshot
+   * - browser_diagnostics
+     - Read
+     - Recent console, JavaScript errors and browser logs; bounded, non-destructive sample
+   * - browser_snapshot
+     - Read
+     - Fresh visible text/interactive targets with a new revision
+   * - browser_act
+     - Write
+     - Referenced click/fill or current-page key/scroll, then a fresh snapshot
+   * - browser_wait
+     - Read
+     - Literal body-text condition and matched/timeout result
+   * - browser_capture
+     - Read
+     - Native MCP image block with URL and viewport metadata
+   * - browser_close
+     - Write
+     - Cancel commands and discard only this scope's profile
+   * - project_list
+     - Read
+     - Full operator catalog or only the calling agent's workspace
+   * - project_register
+     - Operator write
+     - Open an existing absolute folder; restore hidden project IDs/history
+   * - project_forget
+     - Operator write
+     - Hide a project without deleting files or history; reject busy workspaces
+   * - worktree_create
+     - Operator write
+     - New branch/worktree in app-owned storage; never overwrite existing branches
+   * - worktree_remove
+     - Operator write
+     - Delete a clean, idle, app-managed worktree; retain branch/history
+   * - workspace_changes
+     - Read
+     - Scoped branch and changed files with index/worktree status
+   * - workspace_diff
+     - Read
+     - Scoped exact-path staged/unstaged diff with truncation flags
+   * - workspace_propose_commit
+     - Write
+     - Pending commit proposal for operator review; read-only scoped sessions may call it; never stages or commits
+   * - environment_read
+     - Read
+     - Stable environment ID, version, OS/architecture and selected preferences
+   * - environment_preferences_update
+     - Operator write
+     - Patch display label and default worktree base
+   * - host_skills_list
+     - Read
+     - Enabled host-managed skill metadata for the session workspace
+   * - host_skills_read
+     - Read
+     - One enabled skill's SKILL.md or supporting UTF-8 resource
+   * - host_skill_propose
+     - Write
+     - Pending skill proposal; installs nothing until the operator approves
+   * - host_skill_proposal_status
+     - Read
+     - Skill proposal state
+   * - host_mcp_propose
+     - Write
+     - Pending workspace MCP server proposal; starts nothing until approval
+   * - host_mcp_proposal_status
+     - Read
+     - MCP server proposal state
+   * - write_pull_request_guides
+     - Write
+     - Queue reviewer-guide jobs for 1–20 GitHub PRs; never posts to GitHub
+   * - read_pull_request_guide
+     - Read
+     - Latest local guide result and head/base staleness
+   * - link_pull_request
+     - Write
+     - Idempotent local PR link for a saved conversation
+   * - watch_pull_request
+     - Write
+     - Poll an open PR and queue turns for new checks, reviews or conflicts
+   * - unwatch_pull_request
+     - Write
+     - Stop a watch, keeping the link
+   * - unlink_pull_request
+     - Write
+     - Remove the local link and its watch
+   * - list_thread_pull_requests
+     - Read
+     - A conversation's local PR links; does not contact GitHub
+   * - device_list
+     - Read
+     - Operator-granted Android devices through the local ADB server
+   * - device_open
+     - Write
+     - Claim a granted, already connected Android device
+   * - device_screenshot
+     - Read
+     - PNG screen image with dimensions and a new revision
+   * - device_act
+     - Write
+     - One tap/swipe/text/key action against the latest revision
+   * - device_close
+     - Write
+     - Release only this scope's device session and grant
+   * - computer_capture
+     - Read
+     - Windows desktop image, dimensions and a new revision
+   * - computer_act
+     - Write
+     - One click/text/key/scroll against the latest revision, then a fresh capture
+   * - computer_close
+     - Write
+     - Release this execution's computer control
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+- TYPE: File
+  VALUE: crates/api/tests/devices.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Project tools
+
+[REQUIREMENT]
+UID: HARNESS-PROJECT-TOOLS-1
+STATUS: Active
+TITLE: Workspace scope for project tools
+STATEMENT: >>>
+Project tools use Workspaces even when Jobs is absent. Directory management is
+hidden from scoped sessions and rejected on direct invocation, including sessions
+with write access. Scoped reads default to the session's physical workspace and
+cannot select a sibling worktree. Operator reads default to the catalog's default
+workspace. No tool changes another session's scope. Creation returns the updated
+catalog; find the new workspace by its unique branch. After uncertain delivery,
+inspect the catalog before retrying creation/removal: existing branches and
+missing workspace IDs return errors. Force removal is not supported.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+
+[REQUIREMENT]
+UID: HARNESS-PROJECT-TOOLS-2
+STATUS: Active
+TITLE: Shared mutation guards
+STATEMENT: >>>
+HTTP and MCP share application-level pending-job checks under the workspace
+mutation lease, plus adapter guards for active operations, dirty/ignored files,
+locked/main/external worktrees and managed-directory containment. Changes/diff
+also reject a registered directory redirected through a symlink or junction.
+``cargo harness test --package gpui-agent-api --test project_tools`` covers these
+public MCP/HTTP behaviors with temporary real Git repositories, scoped credentials
+and a durable queued job; no provider login or live inference is required.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Browser tools
+
+[REQUIREMENT]
+UID: HARNESS-BROWSER-1
+STATUS: Active
+TITLE: Isolated browser scopes
+STATEMENT: >>>
+Browser tools require a HostControl backend, not Jobs or provider login. The
+application use case validates commands and image replies; the control adapter
+owns isolated browser processes and serializes commands within each scope.
+MCP scopes are injected from authentication, never selectable in arguments.
+Provider/account/workspace namespaces share no profile with each other, the
+operator namespace, manual controls or personal browser profiles. Same-scope
+sessions share a single automation page across native turns. The public client
+fixture's NoControls backend keeps automation disabled.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/control/tests/browser_automation.rs
+
+[REQUIREMENT]
+UID: HARNESS-BROWSER-2
+STATUS: Active
+TITLE: Bounded DOM snapshots and revisions
+STATEMENT: >>>
+DOM snapshots use a fixed script in a CDP isolated world, with at most 16,000
+Unicode characters and 100 interactive targets (viewport targets first), plus
+truncation flags. Input values are omitted from target metadata. A string
+revision changes on every snapshot, including after actions/waits; click/fill
+must use a target ID from that revision. Detached, hidden, covered, inert,
+disabled, read-only and unsupported input targets are rejected without losing
+the page. Fill replaces a supported input/textarea value and emits input/change
+events; user text is JSON encoded as data. Arbitrary script execution is not
+exposed. Key/scroll reuse existing bounded controls. Frames, shadow roots,
+popups and uploads are outside this interface.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/control/tests/browser_automation.rs
+
+[REQUIREMENT]
+UID: HARNESS-BROWSER-3
+STATUS: Active
+TITLE: Waits, capture and profile lifecycle
+STATEMENT: >>>
+Text waits accept timeout_ms 0–10000 and return matched=false on ordinary
+absence while retaining the page. Capture emits an image content block and
+keeps base64 out of structured metadata. The adapter caps automation contexts
+at eight, reaps profiles idle for ten minutes on a 30-second sweep, and closes
+them on protocol failure, a 15-second command limit, request drop, explicit
+close or host shutdown. Profiles are temporary and downloads remain blocked.
+Actions are not durable/idempotent; observe state before retrying uncertain
+delivery. Close is safe to repeat. Closed/reopened pages reject old revisions.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/control/tests/browser_automation.rs
+
+[TEXT]
+STATEMENT: >>>
+The authenticated control fixture covers discovery/calls without Jobs,
+scope injection, read-only access, invalid input and native image responses.
+Explicitly run browser_automation with --ignored for the public-port tests
+against a locally installed Chromium and a local HTML server. They cover
+Unicode/quote input, DOM clicks, rejected targets/revisions/URLs, text waits,
+capture, three scope dimensions, manual/operator isolation, profile reset,
+truncation and cancellation while navigation is pending. These tests use no
+real accounts. Existing manual browser acceptance remains separately available;
+Windows pointer tests are not part of browser automation verification.
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-BROWSER-4
+STATUS: Active
+TITLE: Sandboxed HTML rendering
+STATEMENT: >>>
+HTML results reuse HostControl and the scope's existing browser lifecycle; no
+new service, dependency, persistent artifact store or UI panel is required.
+Contracts validate a nonempty, NUL-free, 512 KiB UTF-8 source and construct the
+escaped srcdoc wrapper. The control adapter owns the fresh process/profile,
+inherited CSP, sandbox without same-origin/popups/forms/downloads, blocked
+requests, non-forwarding loopback proxy (including implicit loopback bypass
+removal), DNS restriction and cross-process iframe CDP session. Inline scripts
+and CSS/data assets work; remote/relative assets and module imports do not.
+Rendering or switching back to a URL replaces the profile and invalidates targets.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/control/tests/browser_automation.rs
+
+[REQUIREMENT]
+UID: HARNESS-BROWSER-5
+STATUS: Active
+TITLE: Bounded browser diagnostics
+STATEMENT: >>>
+Runtime/Log notifications are reduced to the newest 100 diagnostic entries, with
+2000 Unicode characters of text and 512 of URL each; line numbers are one-based.
+truncated covers clipped fields and discarded entries. Diagnostics reads neither
+clear the sample nor invalidate DOM targets, and never go to host diagnostic
+logs. The sample is transient and collected during command processing, not a
+durable or complete audit. Detached iframe targets fail closed.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/control/tests/browser_automation.rs
+
+[TEXT]
+STATEMENT: >>>
+The explicit Chromium test target also covers inline rendering/interaction and
+mobile screenshot, early console/unhandled exceptions, overflow, isolation and
+reset, blocked parent/storage/popups/host requests and speculative connections,
+then normal URL browsing. Set GPUI_HTML_EVIDENCE to a path outside the checkout
+to retain the HTML screenshot. Native bridge discovery remains shared across
+the server/embedded desktop and all three providers; no real login is needed.
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-BROWSER-6
+STATUS: Active
+TITLE: Shared tool discovery
+STATEMENT: >>>
+Shared server/embedded-desktop MCP hosts and native bridges discover these
+tools through the same adapter. Existing desktop/web manual control contracts
+and the direct CLI are unchanged; no native provider protocol is added.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/control.rs
+- TYPE: File
+  VALUE: crates/control/tests/browser_automation.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Conversation tools
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-1
+STATUS: Active
+TITLE: Conversation scope resolution
+STATEMENT: >>>
+Conversation tools require ``provider``. Omitted ``account``/``workspace`` resolve to
+the calling session; sessions cannot select a different scope. Operator tokens
+can select registered accounts/workspaces explicitly. Conversation IDs are local
+to that scope, while returned job IDs identify durable runs. Reads require no
+installed/authenticated provider; message execution uses the existing runtime
+and approval policy. Tools are exposed by the shared server/embedded-desktop MCP
+adapter and reach all three provider bridges without client-specific protocols.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-2
+STATUS: Active
+TITLE: Queue ordering and submission receipts
+STATEMENT: >>>
+Queued jobs run in submission order; one worker serializes a provider/account
+across all workspaces. Queued jobs cannot be edited or reordered; ``cancel_job``
+cancels queued or running work. Submission receipts retain the original
+request's fingerprint; identical retries return the same job, while changed
+input under the original command ID is rejected.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-3
+STATUS: Active
+TITLE: Pending question relay
+STATEMENT: >>>
+``get_pending_questions`` requires job ``id`` and returns ``job_id`` and ``pending``
+(operation/request IDs, questions, options and multi_select), or ``null`` when
+there is no live question. It reads the active application interaction registry
+rather than replaying old journal entries, and never consumes a question.
+Permission requests are excluded. ``answer_questions`` is listed/callable only
+with a writable operator credential: scoped agents cannot supply the user's
+answer. Provide the same ``id``, exact ``request_id``, and ``response`` as either
+``{"type":"answers","answers":{"question-id":["answer"]}}`` or
+``{"type":"cancelled"}`` to skip. Every requested question must be answered;
+single-choice questions accept one value, multi-select at most 32, each nonblank
+and at most 16 KiB. Existing free-text answers remain valid even with choices.
+Invalid answers leave the question pending. Stale/duplicate replies fail and
+concurrent replies consume the request only once. Acceptance is delivery to
+the runtime, not completion; inspect job state/events. Skipping a question does
+not cancel the job, and this tool cannot approve or deny tool permissions.
+Cancelling/ending a job clears live questions; interrupted questions are not
+replayed after host recovery. Native question support remains Claude/Codex;
+Antigravity retains its existing advertised capabilities.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[TEXT]
+STATEMENT: >>>
+These tools share application services in the server and embedded desktop MCP
+hosts and their native provider bridges. Existing HTTP/web/desktop question
+responses retain their contracts; the direct CLI is unchanged. The jobs fixture
+tests MCP authorization, queue execution order, Claude/Codex answers/skip,
+invalid/concurrent responses and cancellation. The repository fixture verifies
+queue scope filtering, paging, restart and original submission receipts.
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-4
+STATUS: Active
+TITLE: Conversation paging
+STATEMENT: >>>
+List/search pages accept ``offset``, ``limit`` (1–50, default 20), and ``archived``
+(``active``, ``archived``, ``all``). Echo ``next_offset``; concurrent updates can change
+ordering. Search requires a nonblank ``query`` of at most 256 characters and uses
+the existing SQLite literal substring behavior. Message pages accept ``cursor``
+and ``limit`` (1–20, default 20) with a shared 16,000-character budget. Echo
+``next_cursor`` to recover long messages; ``text`` counts Unicode scalar values,
+not bytes or UTF-16 units. Attachments are reported as a count; use existing job
+events for activity. These tools page existing in-memory history snapshots.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-5
+STATUS: Active
+TITLE: Send, wait and interrupt
+STATEMENT: >>>
+``conversation_send`` requires ``text`` and ``command_id``; optional ``id`` continues
+a saved conversation, otherwise a new one is created when its job starts.
+Optional ``model`` selects this turn's model; omission uses the provider default,
+except the first independent fork turn inherits its saved model.
+It shares durable receipts with job submission and queues behind active work.
+It does not steer or restart a native turn. ``conversation_wait`` selects the
+latest job once at call time unless ``job_id`` is supplied, accepts ``timeout_ms``
+of 0–10000 (default 1000), and returns ``timed_out`` plus current job state.
+Timeout leaves work running. ``conversation_interrupt`` prefers running/waiting
+work over a newer queued message; explicit ``job_id`` targets one run. It does not
+cancel other queued messages. Repeating interruption of a terminal job preserves
+its result. Both tools validate that a supplied job belongs to the conversation
+and scope. They track durable jobs only, not standalone CLI or direct streaming
+turns. Renaming an active response is rejected; archiving does not cancel work,
+and a later delivered message can unarchive it.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-6
+STATUS: Active
+TITLE: Conversation fork
+STATEMENT: >>>
+``conversation_fork`` requires source ``id`` and ``command_id``; optional
+``through_message_id`` selects a completed assistant boundary (default: current
+last message). An earlier completed prefix can be forked while the source is
+active. The idle child copies messages, attachments, tool results and model;
+native session IDs and approvals are excluded. Pass the returned ``target_id``
+as ``conversation_send.id`` to start an independent native session. Optional
+``title`` names the child. No provider process starts during the fork.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-7
+STATUS: Active
+TITLE: Conversation merge-back
+STATEMENT: >>>
+``conversation_merge_back`` requires ``source_id``, ancestor ``target_id`` and
+``command_id``, with an optional completed ``through_message_id``. Only content
+after that ancestor's original fork boundary is included, also for nested
+branches. Sibling, unrelated, reverse and cross-scope merges are rejected.
+The snapshot is saved for the target's next admitted turn; it does not rewrite
+messages, start a turn or steer an active provider. This transfers conversation
+context, not Git changes. Each snapshot has a 192 KiB transcript limit plus
+existing attachment limits. Combined pending context is validated at acceptance
+and again with caller attachments at turn admission. Rejection leaves history
+and pending records unchanged.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[REQUIREMENT]
+UID: HARNESS-CONVERSATION-8
+STATUS: Active
+TITLE: Atomic fork and merge receipts
+STATEMENT: >>>
+Fork/merge commands and their receipts commit atomically in history. Identical
+retries return the same record even after source updates/deletion or restart;
+changed input with the same command ID is rejected. Receipts and snapshots live
+until the target is deleted. ``conversation_transfers`` requires ``id`` and accepts
+an ``after`` transfer ID (default 0), returning at most 50 metadata records and
+``next_after``. Snapshot bytes and native session IDs are excluded. ``pending``
+means saved intent; ``attached`` means committed into an admitted user turn, not
+provider completion. Merge context remains in that turn's saved attachments and
+is not attached again to later turns. The repository BDD scenarios cover all
+three providers, source deletion/restart, nested deltas, admission rollback and
+tool-result preservation without permission inheritance; the MCP jobs fixture
+covers authorization, concurrent retries, model inheritance and delivery.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+- TYPE: File
+  VALUE: crates/history/tests/context_transfers.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Durable intent
+
+[REQUIREMENT]
+UID: HARNESS-DURABILITY-1
+STATUS: Active
+TITLE: Idempotent job submission
+STATEMENT: >>>
+``enqueue_job`` requires a ``command_id``. REST clients opt into the same application
+service with ``Idempotency-Key`` on job submission. A receipt and its job commit in
+one SQLite transaction. Concurrent identical retries return the original job;
+different input or scope with the same ID is rejected. Receipts retain only a
+SHA-256 fingerprint of the original scope/request and live as long as their job.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+
+[REQUIREMENT]
+UID: HARNESS-DURABILITY-2
+STATUS: Active
+TITLE: Durable queue as execution outbox
+STATEMENT: >>>
+The existing durable queue is the execution outbox: work is saved before a worker
+is woken, startup wakes queued jobs, and running/waiting jobs become interrupted
+after a host crash. Interrupted provider work is never automatically replayed,
+because the external process may already have changed files. Existing context
+snapshot and checkpoint services keep this lifecycle.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+
+[REQUIREMENT]
+UID: HARNESS-DURABILITY-3
+STATUS: Active
+TITLE: Correlated MCP diagnostics
+STATEMENT: >>>
+MCP emits one structured stderr record per executed tool, containing its registered
+name, success flag, elapsed milliseconds, and host-generated ``request_id``. The
+HTTP response carries the same value in ``X-Request-ID``; client-supplied identifiers
+are not copied into diagnostics. Successful job reads, submissions and cancellation
+also include ``job_id`` and the current ``operation_id`` when execution has started.
+Retries have distinct request IDs and share a durable job ID. IDs are process-scoped;
+the job ID and persisted event sequence connect later reads to execution state.
+Arguments, tokens, account/workspace paths and returned content are excluded.
+``McpDiagnostic`` is pure data; ``McpDiagnosticSink`` is an output port. The HTTP adapter
+supplies the default stderr output or an injected sink without coupling use cases
+to a logging backend.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/queue.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Windows computer use MVP
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-1
+STATUS: Active
+TITLE: Automatic host computer policy
+STATEMENT: >>>
+Production Windows desktop and server hosts automatically enable computer use
+and manual desktop control for every project for the lifetime of the host.
+No monitor-panel grant or ten-minute renewal is required. Authority is never
+saved to disk. Each new host starts with this policy enabled; shutdown clears
+the in-memory control state. A separately running server owns its own lifetime.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-2
+STATUS: Active
+TITLE: Execution-bound desktop ownership
+STATEMENT: >>>
+The first capture claims the desktop for the authenticated durable job and
+execution. Another execution or manual command receives a busy error until
+the owner closes, completes, cancels, or loses its credential. Captures and
+input retain revision, coordinate, scope, native-focus and cancellation checks;
+input is never retried automatically. Direct CLI ``ask`` has no durable job and
+does not receive computer authority. Native provider support is unchanged.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-3
+STATUS: Active
+TITLE: Automatic approval of recognized computer tools
+STATEMENT: >>>
+Scoped read-only MCP sessions may use only the computer capture/act/close tools
+under this host policy; other writes still require ``--mcp-write``. Computer tasks
+skip ``computer/request_control``. The application automatically accepts recognized
+host computer tool permissions and empty host computer confirmations; other
+permissions, forms and user questions retain their existing interaction flow.
+Unknown provider approval shapes remain interactive rather than broadening
+approval to unrelated tools.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-4
+STATUS: Active
+TITLE: Additive automatic status
+STATEMENT: >>>
+``GET /v1/control/computer`` includes additive ``automatic`` (default false for older
+hosts). In automatic mode ``expires_in_seconds:0`` means no time-based expiry;
+execution validity still controls ownership. Desktop and web display automatic
+access instead of a countdown. The following explicit-grant workflow describes
+legacy/custom hosts and fixtures that do not opt into automatic control.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-5
+STATUS: Active
+TITLE: Automatic permission live acceptance
+STATEMENT: >>>
+A real authenticated model must complete ``capture → click → text → close``
+through Jobs and the scoped native MCP bridge without an operator response.
+Desktop pixels and input come from the synthetic test driver, so this does not
+prove physical Windows input; the separate ``live_windows_capture_and_input``
+owned-editor test below covers that. Profiles are referenced in place, never
+copied, temporary job/history state is removed after the owned host stops, and
+no login/logout is performed.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-6
+STATUS: Active
+TITLE: Codex host elicitation binding
+STATEMENT: >>>
+The Codex adapter binds an empty host elicitation to the active host MCP tool
+using thread/turn/item identity, and emits a normalized computer permission only
+for an unambiguous computer tool. Display text cannot authorize a form. Ordinary
+forms, foreign servers and ambiguous concurrent host tools retain their input
+flow. Native process regressions cover accept, decline, arbitrary display text
+and ambiguous tool identity.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[TEXT]
+STATEMENT: >>>
+Run explicitly with an existing authenticated profile and native executable:
+
+.. code-block:: powershell
+
+   $env:GPUI_AGENT_QA_PROVIDER = 'claude' # or codex / antigravity
+   $env:GPUI_AGENT_QA_PROFILE = '<absolute existing authenticated profile>'
+   $env:GPUI_AGENT_QA_EXECUTABLE = '<absolute installed native executable>'
+   cargo test --locked -p gpui-agent-api --test jobs -- --live-computer-automatic
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-7
+STATUS: Active
+TITLE: Opt-in live runner and ACP tool identity
+STATEMENT: >>>
+This opt-in runner never invokes personal desktop I/O and does not run in the
+default test suite. It fails on an unresolved native interaction, missing
+computer actions, failure/cancellation, or a 200-second deadline; host teardown
+still cancels unfinished work. Antigravity uses the native
+``localharness_external`` executable beside its ACP server. ACP supplies
+authoritative tool identity in ``toolCall._meta.mcp.server/tool``; the policy uses
+that metadata, not display titles or input arguments. Positive and negative
+domain cases and a native ACP-process fixture cover this boundary. Native
+fixtures remain separate from the real-model and physical Windows tests.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-8
+STATUS: Active
+TITLE: Codex host tool discovery before inference
+STATEMENT: >>>
+Windows computer use reuses Jobs, the native provider MCP bridge, and HostControl.
+Codex checks the injected host's thread-local MCP catalog before starting inference.
+It uses the native `mcpServerStatus/list API <https://learn.chatgpt.com/docs/app-server>`__
+with the thread and host server name, also checked against the installed runtime schema.
+If discovery fails or the host tools are missing, the job fails explicitly instead
+of asking a model to proceed without them. The native protocol regression covers
+this before ``turn/start``; it does not claim to diagnose every native startup failure.
+Start the checkout-local host with ``cargo harness dev --mcp-write``. Submit work
+through the existing desktop, web, or authenticated jobs API. The direct CLI
+``ask``/streaming path has no durable job identity and cannot use these tools.
+Both the server and embedded desktop host use the same application service.
+For the embedded desktop host, use ``cargo harness dev --surface desktop --mcp-write``.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-9
+STATUS: Active
+TITLE: Explicit computer task submission
+STATEMENT: >>>
+The desktop Codex composer has **Submit computer task** beside the normal send
+flow. It submits the same authenticated Jobs request with optional
+``computer_use:true`` (default false; omitted for existing callers). Application
+pauses such jobs at ``computer/request_control`` before invoking the provider.
+The chat's confirmation reuses the job control panel: select **Allow selected job
+for 10 minutes…**, confirm the scope, then **Start task**. Start remains disabled
+until the host reports a current grant for that exact job. Declining ends the
+unstarted job; cancelling or restarting the host never replays it. Direct chat
+requests without a durable job reject this flag. The flag is saved intent, not a
+grant, and does not authorize native input by itself.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-10
+STATUS: Active
+TITLE: Computer tool approvals and results
+STATEMENT: >>>
+Native MCP forms with no fields offer one explicit acceptance without asking for
+JSON. Other forms retain schema validation and input. Host computer approvals
+show in-progress tool arguments alongside the native request; they still reply
+to the exact one-use interaction ID. Completed computer tool details show the
+returned image and revision/size metadata rather than base64. Text-only or failed
+tool results retain their native error details. Normal chat, web/MCP/CLI requests
+default to false; provider
+wire contracts remain unchanged because the gate runs in application.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-11
+STATUS: Active
+TITLE: Approval dialog control actions
+STATEMENT: >>>
+While a native computer request is pending, its approval dialog also shows the
+same host control status, refresh and **Revoke job permission** action. Accepting
+capture/input requires a current grant for that exact job and no outstanding
+control request. Revocation or an unknown/failed status blocks acceptance;
+**Deny** stays available. **Cancel task** cancels the durable job directly
+from the dialog and immediately disables the pending approval while cancellation
+is outstanding. A failed cancellation restores the interaction controls and
+reports the error; it does not claim that the job stopped. Deny rejects one
+native request, whereas cancellation stops the whole job. Neither starts input
+automatically. An already accepted Windows input batch cannot be undone.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-12
+STATUS: Active
+TITLE: Foreground delegation
+STATEMENT: >>>
+On Windows, the status also includes optional ``foreground`` process identity
+(PID and creation time). When a native host request is explicitly accepted for
+the granted job, the desktop client uses ``AllowSetForegroundWindow`` for that
+exact local process. This lets input restore the clicked editor after the
+approval dialog took focus. A remote or reused PID fails identity validation;
+no global foreground-lock setting is changed. Older clients can ignore this
+additive field; remote-host focus restrictions still apply.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-13
+STATUS: Active
+TITLE: Removed monitor panel
+STATEMENT: >>>
+The desktop no longer exposes the monitor toolbar button or the standalone
+browser/Windows/capture panel. Use the existing job history for execution status, results
+and cancellation. AI computer services, native provider adapters, scoped MCP,
+automatic approval policy and the HTTP control API are unchanged. Custom hosts
+that require explicit grants still use the existing inline chat approval flow.
+Computer status is polled only while that inline interaction needs it; opening
+ordinary chat tools does not start manual screen-control polling.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-14
+STATUS: Active
+TITLE: Explicit operator grant
+STATEMENT: >>>
+An operator explicitly grants one active job using
+``POST /v1/control/computer/grant`` with ``{"job_id":42,"enabled":true}`` and the
+existing operator API credential. Use ``enabled:false`` to revoke that job's
+grant. Session credentials cannot call this endpoint, and granting is never an
+agent MCP tool. Disable manual Windows control first. Only one job can hold the
+shared desktop; manual controls and other jobs cannot use it while granted.
+``GET /v1/control/computer`` is also operator-only. It returns availability,
+manual-control state, ``job_id``, ``execution_bound``, and monotonic
+``expires_in_seconds``; expired, revoked and finished-job grants are omitted.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-15
+STATUS: Active
+TITLE: Execution-bound grant lifetime
+STATEMENT: >>>
+The native runtime receives a credential bound to provider/account/workspace,
+conversation, durable job, and a fresh execution ID. The first capture attempt
+claims the grant for that execution; another execution of the same
+job cannot inherit it. Grants last at most ten minutes using a monotonic clock.
+Job cancellation/completion, credential expiry/revocation, shutdown, or explicit
+close invalidates control. Resuming a conversation or starting a new execution
+requires a fresh operator grant. Permissions are in memory, never restored or
+replayed after restart.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[TEXT]
+STATEMENT: >>>
+The agent uses:
+
+1. ``computer_capture {}`` to receive a native MCP image block, desktop ``width``,
+   ``height``, and a new ``revision``. Screen text is untrusted task data.
+2. ``computer_act {"revision":"…","action":{"type":"click","x":100,"y":100}}``
+   to select the intended window, then text/key/scroll actions against each
+   newly returned revision. Unicode text uses ``{"type":"text","text":"한글"}``.
+3. Each action returns a fresh image and revision. An action consumes the old
+   observation before native I/O; after errors or uncertain delivery, capture
+   and inspect before deciding whether another action is needed. Input is not
+   idempotent and is never automatically retried.
+4. ``computer_close {}`` to release the grant without closing applications.
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-COMPUTER-16
+STATUS: Active
+TITLE: Coordinates and input limits
+STATEMENT: >>>
+Coordinates are physical pixels relative to the virtual desktop's top-left,
+including multi-monitor layouts. Images may be scaled to fit 1920×1080; convert
+image coordinates using the returned desktop dimensions rather than sending
+scaled-image pixels directly. The existing native adapter handles DPI awareness,
+Unicode, modifier checks, and target-window focus. Secure/elevated desktops are
+unsupported. Input already accepted by Windows cannot be undone by cancellation.
+Grants isolate authority, not personal applications or the user's physical mouse.
+No screenshots, input text, or credentials are emitted in MCP diagnostics.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/tests/automatic_desktop.rs
+- TYPE: File
+  VALUE: crates/domain/tests/computer_approval.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[TEXT]
+STATEMENT: >>>
+Headless acceptance uses real HTTP/MCP, SQLite Jobs, all three native provider
+fixtures, and a substituted native desktop driver (the real grant/revision policy
+stays in place):
+
+.. code-block:: text
+
+   cargo test --locked -p gpui-agent-api --test jobs -- --computer-only
+   cargo test --locked -p gpui-agent-api --test jobs -- --mcp-sessions-only
+   cargo harness test --package gpui-agent-control
+   cargo harness test --package gpui-agent-application --test architecture
+
+Actual Windows capture/click/Unicode input/re-observation uses an owned EDIT
+test window and briefly moves the pointer. It needs an unlocked interactive
+Windows desktop, no provider login:
+
+.. code-block:: text
+
+   cargo test --locked -p gpui-agent-control --lib live_windows_capture_and_input -- --ignored --nocapture
+
+Optionally set ``GPUI_AGENT_QA_DIR`` to an absolute directory outside the checkout
+to retain ``windows-computer-mvp.jpg``. This is visual/native verification, separate
+from fixture acceptance and from live model inference. Accessibility tree
+navigation, drag/chords, and macOS/Linux desktop drivers are outside this MVP.
+
+For inline grant UI visual acceptance without real provider accounts or host
+controls, run ``cargo test --locked -p gpui-agent-api --test jobs -- --computer-fixture``
+in a retained interactive terminal. Connect the desktop with the printed loopback
+URL and fixture-only token file. This reuses SQLite Jobs and the native provider
+fixtures, plus the real computer grant policy with a synthetic desktop driver;
+browser/device/manual desktop effects remain disabled. It starts one waiting job.
+Exercise inline confirmation cancellation, approve/revoke, job-history cancellation,
+refresh and narrow-window scrolling; retain screenshots outside the checkout. Close the
+owned client and press Enter in the fixture terminal; its supervisor removes the
+temporary home after the host exits. This is a visual fixture run, not live model
+inference or actual OS input.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Live Codex and an owned Windows editor
+
+[TEXT]
+STATEMENT: >>>
+This opt-in acceptance uses a real account and real host input. In separate
+retained **interactive** terminals, start the existing runners:
+
+.. code-block:: powershell
+
+   $env:GPUI_AGENT_QA_EDITOR = '1'
+   cargo test --locked -p gpui-agent-control --lib live_windows_capture_and_input -- --ignored --nocapture
+
+.. code-block:: powershell
+
+   $env:GPUI_AGENT_QA_CODEX_HOME = '<absolute existing authenticated Codex profile>'
+   $env:GPUI_AGENT_QA_CODEX_EXECUTABLE = (Get-Command codex.exe).Source
+   cargo test --locked -p gpui-agent-api --test jobs -- --live-computer
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-LIVE-EDITOR-1
+STATUS: Active
+TITLE: Negative live scenarios
+STATEMENT: >>>
+The editor mode creates the same owned Win32 EDIT window but injects no input.
+For revoke/cancel/decline acceptance, additionally set
+``GPUI_AGENT_QA_EDITOR_EMPTY=1``. The final Enter then asserts the editor is still
+empty. Keep it open across the three negative scenarios and inspect it after
+each. Stop at a native text approval: revoke and decline it in the first job,
+cancel the second job from that dialog, and decline the third request. Confirm
+terminal results and no granted owner after the model closes or the job ends.
+All operator mutations must use desktop controls. Independent HTTP GETs may
+verify terminal journals; they must not submit approvals or change grants.
+Stop the live host and owned editor before ``cargo harness check --include-desktop``:
+the harness fixture gate rebuilds the same test executables, which Windows locks
+while they are running.
+The live Jobs runner references the explicit profile without copying credentials,
+uses temporary SQLite/project state and a fresh operator token, and enables only
+the default Codex account. It never initiates login/logout. Connect the built
+desktop with an explicit checkout-local ``--home``, the printed ``--api-url``, and
+``--token-file``. Submit a Codex job using ``on-request`` and ``read-only``; restrict
+the instruction to the three computer tools and the owned blank editor.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-LIVE-EDITOR-2
+STATUS: Active
+TITLE: Desktop-only live acceptance
+STATEMENT: >>>
+Perform the acceptance entirely in the desktop: choose Codex and its model and
+policy, type the instruction, and click **Submit computer task**. The real
+application gate opens in the chat. Grant the task, confirm, and click **Start
+task**. Review and accept each native computer action in the same chat; empty
+forms need no JSON entry. Inspect the final response and expand the final capture
+tool to see the returned image. Do not submit or answer through HTTP during this
+UI acceptance. The live runner has no test-only start barrier; ordinary jobs
+retain their normal behavior. A job grant and native tool approval are separate
+checks. Read-only HTTP inspection may independently verify the UI's result.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[REQUIREMENT]
+UID: HARNESS-LIVE-EDITOR-3
+STATUS: Active
+TITLE: Observed result acceptance
+STATEMENT: >>>
+Require ``capture → click → Unicode text → capture → close``, using each returned
+revision, with the exact one-line text ``안녕하세요. Codex 컴퓨터 사용 검증입니다.``.
+Retain returned observation images and metadata outside the checkout, including
+the independent final capture and released grant status. Do not log raw prompts,
+responses, images or credentials. Model claims alone do not pass acceptance:
+press Enter in the editor terminal only after re-observation; the runner compares
+the actual window text exactly and closes its owned window. Close the desktop,
+then press Enter in the live host terminal to cancel remaining jobs, stop owned
+processes and remove temporary state. The referenced account's own native
+conversation history follows Codex's normal profile behavior.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/control/src/lib.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Recorded native contracts
+
+[REQUIREMENT]
+UID: HARNESS-RECORDINGS-1
+STATUS: Active
+TITLE: Sanitized status recording
+STATEMENT: >>>
+``crates/agent/tests/recordings/codex-status.jsonl`` was captured from Codex
+``0.163.0`` using an empty temporary profile. It contains actual initialization and
+account-read traffic, including an unsolicited notification, with no model call.
+The test-only capture proxy forwards JSON frames to the real runtime and writes
+only a schema allowlist after redaction. Unknown fields are removed, free text,
+email addresses and paths are replaced, stderr is excluded, and frame/file size
+limits apply. New captures use create-new semantics and never overwrite a file.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/agent/tests/recordings.rs
+- TYPE: File
+  VALUE: crates/agent/tests/recordings/codex-status.jsonl
+
+[TEXT]
+STATEMENT: >>>
+To refresh this status recording, use absolute executable and new output paths:
+
+.. code-block:: text
+
+   cargo test --locked -p gpui-agent --test recordings -- --record-live <absolute-codex-executable> <absolute-new-output.jsonl>
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-RECORDINGS-2
+STATUS: Active
+TITLE: Recording replay in CI
+STATEMENT: >>>
+Review the sanitized recording before replacing the committed sample. The
+recording runner uses the real Agent API through a native process proxy; replay
+must match each sanitized client request before emitting recorded responses.
+Pure redaction policy is separate from capture/replay I/O in test support code.
+CI replays the committed sample without installing Codex or using credentials.
+Three-provider fixture round trips and deliberate contract mismatches also run.
+This recording covers status only. Live authenticated prompts, resume and
+approvals remain separate compatibility checks; synthetic protocol fixtures cover
+those behaviors automatically.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/agent/tests/recordings.rs
+- TYPE: File
+  VALUE: crates/agent/tests/recordings/codex-status.jsonl
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Shared guidance acceptance
+
+[TEXT]
+STATEMENT: >>>
+Run the shared-guidance tests without provider accounts:
+
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-domain --test guidance
+   cargo harness test --package gpui-agent-infrastructure --test guidance
+   cargo harness test --package gpui-agent-history --test guidance
+   cargo harness test --package gpui-agent-api --test guidance
+   cargo harness test --package gpui-agent-presentation --test guidance
+   cargo harness test --package gpui-agent-cli --test guidance
+   cargo test --locked -p gpui-agent --test protocols -- --guidance-only
+   cargo test --locked -p gpui-agent-api --test jobs -- --guidance-only
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-GUIDANCE-1
+STATUS: Active
+TITLE: Guidance fixture coverage
+STATEMENT: >>>
+The fixtures cover all three provider transports on new/resumed turns, durable
+selection/receipts, idempotent admission, missing queued skills, public HTTP and
+read-only scoped MCP, UTF-8 budgets, overrides and symlink/junction escapes.
+The CLI catalog test uses a missing native executable. Architecture and purity
+gates keep the implementation inside this workspace and free of host I/O in policy.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/history/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/api/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/guidance.rs
+- TYPE: File
+  VALUE: apps/cli/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+
+[REQUIREMENT]
+UID: HARNESS-GUIDANCE-2
+STATUS: Active
+TITLE: Client fixture guidance seeding
+STATEMENT: >>>
+``cargo harness client-fixture`` also seeds synthetic AGENTS.md and a
+``fixture-verify`` skill with a supporting reference. Use the desktop header’s instruction
+status and unified plugin picker, and the separate Instructions/Skills settings, to check selection/removal, persisted enablement,
+provider/workspace changes, submit/approve, cancel and reconnect. This is a fixture
+acceptance; installed-provider inference and native memory suppression are separate.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/history/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/api/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/guidance.rs
+- TYPE: File
+  VALUE: apps/cli/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+
+[REQUIREMENT]
+UID: HARNESS-GUIDANCE-3
+STATUS: Active
+TITLE: Guidance visual acceptance
+STATEMENT: >>>
+Gate the change with ``cargo harness check --include-desktop``. Visual fixture
+acceptance covers web selection/removal, persisted disable/enable across web and
+desktop, provider-switch selection reset, Codex submit/approve, cancel while
+waiting, and reconnect/reopen of completed and incomplete histories, with no
+browser error/warn logs. On desktop, check source/catalog display, selection, and
+Claude ``$fixture-verify`` submit/approve with ``Hello 세계`` output. A 640×480
+rendered desktop test keeps the long Claude approval and cancel action reachable
+by scrolling. Guidance fixtures also cover manifest-link containment, bounded
+model diagnostics, EOF frontmatter, and original/changed/removed guidance on all
+three transports.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/history/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/api/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/guidance.rs
+- TYPE: File
+  VALUE: apps/cli/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+
+[REQUIREMENT]
+UID: HARNESS-GUIDANCE-4
+STATUS: Active
+TITLE: Approval request cancellation fixture
+STATEMENT: >>>
+``client-fixture`` starts with ``interactive-allow``, which deliberately expects an
+allow response. To verify request cancellation, change only its printed temporary
+workspace's ``fixture.json`` scenario to the existing ``interactive-request-cancel``
+before starting the next conversation. It accepts the cancelled/denied tool
+response and continues the native fixture. Cancelling the approval request is
+distinct from stopping the entire job. No real login is needed.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/domain/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/infrastructure/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/history/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/api/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/presentation/tests/guidance.rs
+- TYPE: File
+  VALUE: apps/cli/tests/guidance.rs
+- TYPE: File
+  VALUE: crates/agent/tests/protocols.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Profile contention before approval
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo test --locked -p gpui-agent-api --test jobs -- --profile-contention-only
+   cargo harness test --package gpui-agent --test profile_contention
+<<<
+
+[REQUIREMENT]
+UID: HARNESS-CONTENTION-1
+STATUS: Active
+TITLE: Prompt waits for the profile lock
+STATEMENT: >>>
+A status read and a starting prompt share the native profile lock. Previously,
+the prompt failed immediately on contention, closing the job stream before an
+approval (``Missing interaction``). The HTTP/native fixture holds the status read
+with readiness/release signals to reproduce that ordering. It verifies observable
+waiting, approval after release, cancellation while waiting, and repeated status
+polling on all three providers. The native adapter test checks that the prompt's
+deadline includes lock acquisition and that waiting emits one notice. These use
+synthetic profiles and processes, and the API cases also run in the full jobs suite.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/api/tests/jobs.rs
+- TYPE: File
+  VALUE: crates/agent/tests/profile_contention.rs
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Common plugins and local import
+
+[REQUIREMENT]
+UID: HARNESS-PLUGINS-1
+STATUS: Active
+TITLE: Grouped plugins and disabled local imports
+STATEMENT: >>>
+Settings → Plugins groups installed packages, existing standalone skills and
+MCP connections. Local imports start disabled and preserve the source folder,
+standalone skill bytes/settings and provider/account MCP JSON. See
+package format and management (``docs/plugins.md``).
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/tests/plugins.rs
+- TYPE: File
+  VALUE: crates/api/tests/plugins.rs
+- TYPE: File
+  VALUE: apps/cli/tests/plugins.rs
+- TYPE: File
+  VALUE: apps/desktop/src/tests.rs
+
+[TEXT]
+STATEMENT: >>>
+.. code-block:: text
+
+   cargo harness test --package gpui-agent-infrastructure --test plugins
+   cargo harness test --package gpui-agent-api --test plugins
+   cargo harness test --package gpui-agent-cli --test plugins
+   cargo harness test --package gpui-agent-desktop --filter plugins
+   cargo test --locked -p gpui-agent-api --test jobs -- --oauth-mcp-only
+<<<
+
+[[/SECTION]]

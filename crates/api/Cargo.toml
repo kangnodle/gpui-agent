@@ -1,0 +1,49 @@
+[package]
+  edition.workspace      = true
+  license.workspace      = true
+  name                   = "gpui-agent-api"
+  rust-version.workspace = true
+  version.workspace      = true
+
+[[test]]
+  harness = false
+  name    = "http"
+  path    = "tests/http.rs"
+
+[[test]]
+  harness = false
+  name = "workspaces"
+  path = "tests/workspaces.rs"
+
+[dependencies]
+  reqwest.workspace = true
+  serde.workspace = true
+  gpui-agent-application.workspace = true
+  gpui-agent-contracts.workspace = true
+  anyhow.workspace     = true
+  axum                 = "0.8"
+  serde_json.workspace = true
+  tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time"] }
+  tokio-stream         = "0.1"
+
+[dev-dependencies]
+  tokio = { workspace = true, features = ["rt-multi-thread", "process", "io-util", "test-util"] }
+  gpui-agent.workspace = true
+  gpui-agent-infrastructure.workspace = true
+  gpui-agent-control.workspace = true
+  tempfile          = "3"
+
+[[test]]
+  harness = false
+  name = "jobs"
+  path = "tests/jobs.rs"
+
+[[test]]
+  harness = false
+  name = "devices"
+  path = "tests/devices.rs"
+
+[[test]]
+  harness = false
+  name = "pull_requests"
+  path = "tests/pull_requests.rs"

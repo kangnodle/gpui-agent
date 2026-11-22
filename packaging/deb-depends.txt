@@ -1,0 +1,9 @@
+libgcc-s1
+libvulkan1
+libfontconfig1
+libxcb1
+libx11-xcb1
+libxkbcommon0
+libxkbcommon-x11-0
+libwayland-client0
+libwayland-cursor0

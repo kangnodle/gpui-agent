@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Gpui Agent
+Comment=Native chat for Claude, Codex and Antigravity
+Exec=gpui-agent-desktop
+Icon=gpui-agent-desktop
+Terminal=false
+Categories=Development;

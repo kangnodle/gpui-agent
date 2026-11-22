@@ -1,0 +1,21 @@
+[package]
+name = "gpui-agent-application"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+anyhow.workspace = true
+gpui-agent-domain.workspace = true
+gpui-agent-dci.workspace = true
+gpui-agent-ports.workspace = true
+gpui-agent-contracts.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+
+[dev-dependencies]
+proc-macro2 = { version = "1", features = ["span-locations"] }
+syn = { version = "2", features = ["full", "visit"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }

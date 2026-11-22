@@ -1,0 +1,69 @@
+# Rust is pinned by rust-toolchain.toml and installed by rustup.
+[tools]
+node = "24.22.2"
+uv = "0.12.19"
+
+[tasks.doctor]
+description = "Inspect the workspace Rust toolchain"
+run = "cargo harness doctor"
+
+[tasks.setup]
+description = "Fetch locked Cargo dependencies"
+run = "cargo harness setup"
+
+[tasks.build]
+description = "Build all headless targets (append --release for optimized builds)"
+run = "cargo build --locked --workspace --exclude gpui-agent-desktop --all-targets"
+
+[tasks."build:desktop"]
+description = "Build the native GPUI desktop application"
+run = "cargo build --locked --package gpui-agent-desktop"
+
+[tasks.fmt]
+description = "Check Rust formatting without modifying files"
+run = "cargo harness fmt"
+
+[tasks.lint]
+description = "Run Clippy (accepts harness scope arguments)"
+run = "cargo harness lint"
+
+[tasks.test]
+description = "Run Cargo tests (accepts harness scope and test filters)"
+run = "cargo harness test"
+
+[tasks.check]
+description = "Check formatting, Clippy, Rust and web tests; use --include-desktop for GPUI"
+run = "cargo harness check"
+
+[tasks.layers]
+description = "Check workspace dependency boundaries"
+run = "cargo harness test --package gpui-agent-harness --test layers"
+
+[tasks."test:web"]
+description = "Run web client behavior tests"
+run = "node --test apps/web/test.cjs"
+
+[tasks.docs]
+description = "Validate StrictDoc requirements and export HTML to target/strictdoc"
+run = "uvx strictdoc@0.31.1 export . --output-dir target/strictdoc"
+
+[tasks.audit]
+description = "Check supply chain, unused dependencies and the unsafe budget"
+run = "cargo harness audit"
+
+[tasks."audit:install"]
+description = "Install the Cargo audit tools"
+run = "cargo install --locked cargo-deny cargo-machete cargo-geiger"
+
+[tasks.dev]
+description = "Run the isolated development server (accepts --surface desktop)"
+run = "cargo harness dev"
+
+[tasks."client-fixture"]
+description = "Serve real web assets with native protocol fixtures"
+run = "cargo harness client-fixture"
+
+[tasks.release]
+description = "Run release gates and package the native desktop application"
+run = "bash scripts/release.sh"
+run_windows = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"

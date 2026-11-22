@@ -1,0 +1,13 @@
+[package]
+name = "gpui-agent-domain"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+base64 = "0.22.1"
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+serde_yaml_ng = "=0.10.0"

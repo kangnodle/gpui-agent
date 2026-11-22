@@ -1,0 +1,74 @@
+[package]
+  description            = "Native desktop chat for Claude, Codex, and Antigravity"
+  edition.workspace      = true
+  license.workspace      = true
+  name                   = "gpui-agent-desktop"
+  rust-version           = "1.92"
+  version.workspace      = true
+
+[dependencies]
+  gpui-agent-control.workspace = true
+  anyhow.workspace                    = true
+  async-channel                       = "2"
+  clap.workspace                      = true
+  gpui-kit                            = {version = "=0.8.0", features = ["tree-sitter"]}
+  image                               = {version = "0.25", default-features = false, features = ["png", "jpeg", "webp"]}
+  reqwest.workspace                   = true
+  serde_json.workspace                = true
+  gpui-agent.workspace                = true
+  gpui-agent-api.workspace            = true
+  gpui-agent-contracts.workspace      = true
+  gpui-agent-presentation.workspace   = true
+  gpui-agent-infrastructure.workspace = true
+  tokio = { workspace = true, features = ["net", "rt-multi-thread", "sync"] }
+syntect = { version = "5.3.0", default-features = false, features = ["default-syntaxes", "default-themes", "regex-fancy"] }
+
+[build-dependencies]
+  embed-resource = "3"
+
+[dev-dependencies]
+  gpui-kit = {version = "=0.8.0", features = ["test-support"]}
+
+  [package.metadata.packager]
+    authors      = ["kangnodle"]
+    category     = "DeveloperTool"
+    icons        = ["../../packaging/icon.png", "../../packaging/icon.ico"]
+    identifier   = "gg.kangnodle.rust-agent"
+    license-file = "../../LICENSE"
+    product-name = "Gpui Agent"
+    publisher    = "kangnodle"
+    resources    = [{src = "../../LICENSE", target = "LICENSE"}]
+
+    [package.metadata.packager.nsis]
+      installMode    = "currentUser"
+      installer-icon = "../../packaging/icon.ico"
+      languages      = ["English", "Korean"]
+
+    [package.metadata.packager.macos]
+      minimum-system-version = "15.0"
+
+    [package.metadata.packager.deb]
+      depends          = "../../target/release/deb-depends.txt"
+      desktop-template = "../../packaging/gpui-agent-desktop.desktop"
+      package-name     = "gpui-agent-desktop"
+      section          = "devel"
+
+  [package.metadata.generate-rpm]
+    assets = [
+      {dest = "/usr/bin/gpui-agent-desktop", mode = "755", source = "target/release/gpui-agent-desktop"},
+      {dest = "/usr/share/applications/gpui-agent-desktop.desktop", mode = "644", source = "packaging/gpui-agent-desktop.desktop"},
+      {dest = "/usr/share/icons/hicolor/512x512/apps/gpui-agent-desktop.png", mode = "644", source = "packaging/icon.png"},
+      {dest = "/usr/share/licenses/gpui-agent-desktop/LICENSE", doc = true, mode = "644", source = "LICENSE"},
+    ]
+    summary = "Native desktop chat for Claude, Codex, and Antigravity"
+
+    # GPUI loads the graphics/windowing libraries dynamically.
+    [package.metadata.generate-rpm.requires]
+      "libvulkan.so.1()(64bit)"         = "*"
+      "libfontconfig.so.1()(64bit)"     = "*"
+      "libxcb.so.1()(64bit)"            = "*"
+      "libX11-xcb.so.1()(64bit)"        = "*"
+      "libwayland-client.so.0()(64bit)" = "*"
+      "libwayland-cursor.so.0()(64bit)" = "*"
+      "libxkbcommon.so.0()(64bit)"      = "*"
+      "libxkbcommon-x11.so.0()(64bit)"  = "*"

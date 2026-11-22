@@ -1,0 +1,60 @@
+name: Harness
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      # Temporary Git repositories and worktrees also need stable LF contents.
+      - name: Preserve LF in Git test fixtures
+        run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          version: 2026.11.8
+      - name: Install workspace Rust toolchain
+        run: rustup show
+      - name: Cache Cargo builds
+        uses: Swatinem/rust-cache@v2
+      - name: Headless gates
+        run: mise run check
+      - name: Requirements traceability
+        if: runner.os == 'Linux'
+        run: mise run docs
+      - name: Native desktop gates
+        if: runner.os == 'Windows'
+        run: mise run lint --package gpui-agent-desktop
+      - name: Desktop behavior tests
+        if: runner.os == 'Windows'
+        run: mise run test --package gpui-agent-desktop
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install workspace Rust toolchain
+        run: rustup show
+      - name: Cache Cargo builds
+        uses: Swatinem/rust-cache@v2
+      - uses: jdx/mise-action@v4
+        with:
+          version: 2026.11.8
+      - name: Install audit tools
+        run: mise run audit:install
+      - name: Supply chain, unused dependencies, unsafe budget
+        run: mise run audit

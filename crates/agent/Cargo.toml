@@ -1,0 +1,32 @@
+[package]
+  edition.workspace      = true
+  license.workspace      = true
+  name                   = "gpui-agent"
+  rust-version.workspace = true
+  version.workspace      = true
+
+[[test]]
+  harness = false
+  name    = "protocols"
+  path    = "tests/protocols.rs"
+
+[[test]]
+  harness = false
+  name = "recordings"
+  path = "tests/recordings.rs"
+
+[dependencies]
+  reqwest.workspace = true
+  serde.workspace = true
+  base64 = "0.22"
+  sha2 = "0.10"
+  getrandom = "0.4"
+  anyhow.workspace     = true
+  gpui-agent-domain.workspace = true
+  gpui-agent-process.workspace = true
+  gpui-agent-ports.workspace = true
+  serde_json.workspace = true
+  tempfile             = "3"
+  tokio = { workspace = true, features = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"] }
+  url.workspace = true
+

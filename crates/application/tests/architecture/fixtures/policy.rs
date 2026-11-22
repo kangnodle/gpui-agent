@@ -1,0 +1,3 @@
+mod nested {
+    mod clock;
+}
