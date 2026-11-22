@@ -38,6 +38,7 @@
     "Zlib",
   ]
   confidence-threshold = 0.9
+  private = {ignore = true}
 
 [bans]
   # Duplicate majors are reported, not fatal. GPUI pins its own graph, so every

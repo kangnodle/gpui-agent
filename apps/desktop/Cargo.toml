@@ -2,6 +2,7 @@
   description            = "Native desktop chat for Claude, Codex, and Antigravity"
   edition.workspace      = true
   license.workspace      = true
+  publish.workspace      = true
   name                   = "gpui-agent-desktop"
   rust-version           = "1.92"
   version.workspace      = true
