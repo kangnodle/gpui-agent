@@ -3,8 +3,7 @@
 use anyhow::Result;
 use clap::Parser;
 use gpui_agent_api::Api;
-use gpui_agent_infrastructure::{Settings,
-                                load_or_create_token};
+use gpui_agent_infrastructure::Settings;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -40,12 +39,14 @@ async fn main() -> Result<()> {
     settings.mcp_sessions = Some(sessions.clone());
     settings.mcp_write = args.mcp_write;
     let token_file = args.token_file.unwrap_or_else(|| settings.home.join("api.token"));
+    let operator_token = settings.load_host_token(&token_file)?;
+    let mcp_token = settings.load_host_token(&settings.home.join("mcp-read.token"))?;
     let application = settings.application()?;
     let workspaces = settings.workspaces(application.clone())?;
     let jobs = settings.jobs(workspaces.clone())?;
-    let api = Api::new(application, load_or_create_token(&token_file)?)?
+    let api = Api::new(application, operator_token)?
         .with_mcp_sessions(sessions)
-        .with_mcp_read_token(load_or_create_token(&settings.home.join("mcp-read.token"))?)?
+        .with_mcp_read_token(mcp_token)?
         .with_workspaces(workspaces)
         .with_jobs(jobs)
         .with_controls(std::sync::Arc::new(gpui_agent_control::Controls::default().with_automatic_desktop()));

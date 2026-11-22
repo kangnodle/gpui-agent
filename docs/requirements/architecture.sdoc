@@ -176,7 +176,7 @@ UID: ARCH-SEC-1
 STATUS: Active
 TITLE: 홈 아래 상태 저장
 STATEMENT: >>>
-기본 상태는 ``Settings::discover`` 가 정하는 홈 아래에 저장됩니다. 개발 시 ``cargo harness dev`` 는 체크아웃 로컬 ``.dev/home`` 을 쓰며 실제 프로필을 복사하지 않습니다.
+기본 상태는 ``Settings::discover`` 가 정하는 홈 아래에 저장됩니다. 개발 시 ``cargo harness dev`` 는 체크아웃 밖의 전용 개발 홈 을 쓰며 실제 프로필을 복사하지 않습니다.
 <<<
 RELATIONS:
 - TYPE: File

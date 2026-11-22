@@ -152,24 +152,7 @@ fn check_pipeline(script: &str, commands: impl Fn(&Path) -> Vec<Vec<String>>, ar
 #[test]
 fn given_shell_pipelines_when_each_step_fails_then_exit_and_arguments_are_preserved() {
     for script in ["dev.ps1", "dev.sh"] {
-        check_pipeline(
-            script,
-            |root| {
-                vec![strings(&[
-                    "run",
-                    "--package",
-                    "gpui-agent-desktop",
-                    "--locked",
-                    "--",
-                    "--home",
-                    &shell_path(&root.join(".gpui-agent-dev")),
-                ])]
-            },
-            &[],
-            None,
-            0,
-            false,
-        );
+        check_pipeline(script, |_| vec![strings(&["harness", "dev", "--surface", "desktop"])], &[], None, 0, false);
     }
     for arguments in [
         &["--cwd", "workspace with spaces/한글", "--home", "profile with spaces"][..],
@@ -184,7 +167,7 @@ fn given_shell_pipelines_when_each_step_fails_then_exit_and_arguments_are_preser
                         strings(&["clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"]),
                         strings(&["build", "--workspace", "--all-targets", "--locked"]),
                         strings(&["test", "--workspace", "--locked"]),
-                        [strings(&["run", "--package", "gpui-agent-desktop", "--locked", "--"]), strings(arguments)].concat(),
+                        [strings(&["harness", "dev", "--surface", "desktop", "--"]), strings(arguments)].concat(),
                     ]
                 },
                 arguments,
@@ -209,27 +192,17 @@ fn given_shell_pipelines_when_each_step_fails_then_exit_and_arguments_are_preser
 }
 
 #[test]
-fn given_legacy_run_scripts_without_a_home_when_started_then_the_profile_is_checkout_local() {
+fn given_legacy_run_scripts_without_a_home_when_started_then_they_use_the_development_harness() {
     for script in ["run.ps1", "run.sh"] {
         check_pipeline(
             script,
-            |root| {
+            |_| {
                 vec![
                     strings(&["fmt", "--all"]),
                     strings(&["clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"]),
                     strings(&["build", "--workspace", "--all-targets", "--locked"]),
                     strings(&["test", "--workspace", "--locked"]),
-                    strings(&[
-                        "run",
-                        "--package",
-                        "gpui-agent-desktop",
-                        "--locked",
-                        "--",
-                        "--home",
-                        &shell_path(&root.join(".gpui-agent-dev")),
-                        "--cwd",
-                        "workspace with spaces/한글",
-                    ]),
+                    strings(&["harness", "dev", "--surface", "desktop", "--", "--cwd", "workspace with spaces/한글"]),
                 ]
             },
             &["--cwd", "workspace with spaces/한글"],
@@ -245,21 +218,13 @@ fn given_audit_gates_when_tools_or_audit_fail_then_the_app_does_not_start() {
     for script in ["dev.ps1", "dev.sh"] {
         check_pipeline(
             script,
-            |root| {
+            |_| {
                 vec![
                     strings(&["deny", "--version"]),
                     strings(&["machete", "--version"]),
                     strings(&["geiger", "--version"]),
                     strings(&["harness", "audit"]),
-                    strings(&[
-                        "run",
-                        "--package",
-                        "gpui-agent-desktop",
-                        "--locked",
-                        "--",
-                        "--home",
-                        &shell_path(&root.join(".gpui-agent-dev")),
-                    ]),
+                    strings(&["harness", "dev", "--surface", "desktop"]),
                 ]
             },
             &[],

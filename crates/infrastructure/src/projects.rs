@@ -111,7 +111,7 @@ impl Projects {
                 cwd: path.into(),
                 ..factory_settings.clone()
             }
-            .application()
+            .registered_application()
         });
         Ok(Self {
             settings,
@@ -570,20 +570,16 @@ impl WorkspaceBackend for Projects {
         };
         let workspace = self.checked_workspace(&state.db, id)?;
         let cwd = Path::new(&workspace.path);
-        let top = git::run(cwd, &self.hooks, &["rev-parse", "--show-toplevel"])?
-            .require()?
-            .text()
-            .trim()
-            .to_owned();
-        let root = PathBuf::from(top);
-        let cwd = root.as_path();
         let files = git::changes(cwd, &self.hooks, false)?;
         let file = files.iter().find(|file| file.path == path).ok_or_else(missing)?;
+        let prefix = git::run(cwd, &self.hooks, &["rev-parse", "--show-prefix"])?.require()?.text();
+        let prefix = prefix.trim_end();
+        let local_path = path.strip_prefix(prefix).ok_or_else(missing)?;
         let untracked = file.index_status == "?";
         let mut staged = String::new();
         let mut truncated = false;
         let unstaged = if untracked {
-            let absolute = cwd.join(path);
+            let absolute = cwd.join(local_path);
             let absolute = path_string(&absolute)?;
             let out = git::run(
                 cwd,
@@ -605,9 +601,9 @@ impl WorkspaceBackend for Projects {
             truncated = out.truncated;
             out.text()
         } else {
-            let mut args = vec!["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--cached", "--", path];
+            let mut args = vec!["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--cached", "--", local_path];
             if let Some(original) = &file.original_path {
-                args.push(original);
+                args.push(original.strip_prefix(prefix).ok_or_else(missing)?);
             }
             let out = git::run(cwd, &self.hooks, &args)?.require()?;
             staged = out.text();

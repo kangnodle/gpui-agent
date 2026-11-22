@@ -21,9 +21,7 @@ try {
     & mise exec -- cargo test --workspace --locked
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-    $homeArgs = @('--home', (Join-Path $repoRoot '.gpui-agent-dev'))
-    if ($args -contains '--home' -or @($args -like '--home=*').Count -gt 0) { $homeArgs = @() }
-    & mise exec -- cargo run --package gpui-agent-desktop --locked -- @homeArgs @args
+    & mise exec -- cargo harness dev --surface desktop -- @args
     exit $LASTEXITCODE
 }
 finally {

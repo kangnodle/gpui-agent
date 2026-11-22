@@ -10,8 +10,4 @@ mise exec -- cargo fmt --all
 mise exec -- cargo clippy --workspace --all-targets --locked -- -D warnings
 mise exec -- cargo build --workspace --all-targets --locked
 mise exec -- cargo test --workspace --locked
-args=(--home "$PWD/.gpui-agent-dev" "$@")
-for arg in "$@"; do
-    case "$arg" in --home|--home=*) args=("$@"); break ;; esac
-done
-exec mise exec -- cargo run --package gpui-agent-desktop --locked -- "${args[@]}"
+exec mise exec -- cargo harness dev --surface desktop -- "$@"

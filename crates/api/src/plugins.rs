@@ -16,7 +16,8 @@ async fn claude(Extension(app): Extension<Application>, Json(request): Json<Plug
     Ok(Json(app.plugins()?.sync_claude(&request.scope, request.enable).await?))
 }
 async fn enabled(Extension(app): Extension<Application>, Json(request): Json<PluginEnabledRequest>) -> ApiResult<Json<PluginCatalog>> {
-    Ok(Json(app.plugins()?.set_enabled(&request.id, request.enabled).await?))
+    let reviewed = request.mcp_servers.or_else(|| request.id.starts_with("repo:").then(Vec::new));
+    Ok(Json(app.plugins()?.set_enabled_reviewed(&request.id, request.enabled, reviewed).await?))
 }
 async fn remove(Extension(app): Extension<Application>, Json(request): Json<PluginRemoveRequest>) -> ApiResult<Json<PluginCatalog>> {
     Ok(Json(app.plugins()?.remove(&request.id).await?))

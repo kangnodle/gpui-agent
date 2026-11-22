@@ -105,6 +105,28 @@ async fn given_a_bundle_when_imported_enabled_disabled_and_removed_then_guidance
         .await?;
     assert!(removed["plugins"].as_array().unwrap().is_empty());
     assert_eq!(std::fs::read(settings.home.join("codex/mcp.json"))?, legacy);
+    let servers = json!([{"name":"review","url":"https://review.invalid/mcp"}]);
+    let manifest = json!({"name":"review","description":"Review fixture","mcp_servers":servers});
+    client
+        .post(format!("{base}/v1/plugins/import"))
+        .bearer_auth(token)
+        .json(&json!({"scope":"repo","files":{"plugin.json":serde_json::to_vec(&manifest)?}}))
+        .send()
+        .await?
+        .error_for_status()?;
+    let enable = |body: Value| client.put(format!("{base}/v1/plugins/enabled")).bearer_auth(token).json(&body).send();
+    assert_eq!(enable(json!({"id":"repo:review","enabled":true})).await?.status(), 400);
+    let updated = json!([{"name":"review","url":"https://updated.invalid/mcp"}]);
+    let mut manifest = manifest;
+    manifest["mcp_servers"] = updated.clone();
+    std::fs::write(settings.cwd.join(".agents/plugins/review/plugin.json"), serde_json::to_vec(&manifest)?)?;
+    assert_eq!(enable(json!({"id":"repo:review","enabled":true,"mcp_servers":servers})).await?.status(), 400);
+    let catalog: Value = enable(json!({"id":"repo:review","enabled":true,"mcp_servers":updated}))
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    assert_eq!(catalog["plugins"][0]["enabled"], true);
     let _ = stop.send(());
     host.await??;
     Ok(())

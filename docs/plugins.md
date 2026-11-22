@@ -58,7 +58,11 @@ description: 변경된 코드의 오류와 회귀 가능성을 검토할 때 사
 **앱 공통**은 gpui-agent 공통 홈의 `plugins/`에, **현재 프로젝트**는 선택된 작업공간의
 `.agents/plugins/`에 저장합니다. ID는 각각 `user:review-tools`, `repo:review-tools`입니다.
 활성 상태는 별도 파일에 저장합니다. 앱 공통은 공통 홈의 `plugin-settings.json`,
-현재 프로젝트는 작업공간의 `.agents/plugin-settings.json`입니다.
+스킬만 포함한 현재 프로젝트 플러그인은 작업공간의 `.agents/plugin-settings.json`을 사용합니다.
+MCP 서버가 포함된 프로젝트 플러그인의 승인은 작업공간 밖 공통 홈의 `repo-plugin-approvals/`에 저장하며
+작업공간의 실제 경로, 플러그인 이름, 승인한 MCP 서버 설정에 연결됩니다.
+이전 버전에서 활성화한 프로젝트 MCP 플러그인은 서버 설정을 확인한 뒤 **활성화**를 다시 누르세요.
+다른 작업공간으로 복사하거나 서버 설정을 변경하면 해당 작업공간에서 다시 승인해야 합니다.
 
 기존 스킬 원본·`skill-settings.json`·제공자/계정별 `mcp.json`은 그대로 유지합니다.
 활성 플러그인의 MCP 서버는 실행 시 기존 연결 목록과 합쳐집니다. 활성화할 때 공통 MCP 설정이나
@@ -77,7 +81,8 @@ Claude CLI로 설치된 플러그인을 선택한 범위로 복사합니다. 루
 비활성 상태입니다.
 
 데스크톱은 에이전트 턴이 끝날 때마다 같은 가져오기를 **앱 공통** 범위로 자동 실행합니다.
-이때 새로 가져온 플러그인은 바로 활성화하고 현재 대화의 선택에 추가합니다.
+이때 스킬만 포함한 플러그인은 바로 활성화하고 현재 대화의 선택에 추가합니다.
+MCP 서버를 포함한 플러그인은 가져온 뒤 운영자가 서버 설정을 검토하고 직접 활성화해야 합니다.
 
 ## 상태와 대화별 선택
 
@@ -127,7 +132,7 @@ gpui-agent --guidance-home <공통홈> --cwd <작업공간> plugins --sync-claud
 | GET | `/v1/plugins` | 없음 |
 | POST | `/v1/plugins/import` | `{scope, files}` — 상대 경로별 원본 바이트 배열 |
 | POST | `/v1/plugins/claude` | `{scope, enable?}` — Claude 설치 플러그인 가져오기, `enable` 기본값 false |
-| PUT | `/v1/plugins/enabled` | `{id, enabled}` |
+| PUT | `/v1/plugins/enabled` | `{id, enabled, mcp_servers?}` — 프로젝트 MCP 플러그인을 활성화할 때는 검토한 `manifest.mcp_servers` 전체를 전달 |
 | POST | `/v1/plugins/remove` | `{id}` |
 
 `/v1/plugins/claude`는 `{catalog, imported, skipped}`를, 나머지는 `{plugins, diagnostics}`를

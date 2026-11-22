@@ -149,6 +149,7 @@ pub(crate) fn changes(path: &Path, hooks: &Path, ignored: bool) -> ApplicationRe
     if ignored {
         args.push("--ignored=matching");
     }
+    args.extend(["--", "."]);
     let output = run(path, hooks, &args)?.require()?;
     if output.truncated {
         return Err(failure("Too many changed files to list safely"));

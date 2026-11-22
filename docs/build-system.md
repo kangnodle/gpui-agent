@@ -54,7 +54,7 @@ Linux/macOS에서 Bash 스크립트를 사용하며 패키징 형식과 감사 �
 `scripts/`의 PowerShell·Bash 스크립트도 mise가 필요합니다. 감사는 `mise run audit`,
 빌드·앱 실행·패키징 및 도구 확인은 `mise exec -- cargo ...`로 실행하므로 셸에 mise를
 활성화하지 않아도 체크아웃의 도구·환경 설정을 사용합니다. 기존 `run`/`release` 스크립트의
-`cargo fmt --all` 자동 수정, 실행 인수와 `.gpui-agent-dev` 기본 프로필은 유지됩니다.
+`cargo fmt --all` 자동 수정, 실행 인수는 유지되며 개발 프로필은 하네스가 체크아웃 밖에서 관리합니다.
 `release` 스크립트는 `mise run release`를 다시 호출하지 않습니다.
 
 ## 계층 규칙 갱신 절차

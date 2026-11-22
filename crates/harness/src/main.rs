@@ -48,13 +48,27 @@ fn run() -> Result<i32> {
             Cli::command().error(clap::error::ErrorKind::ValueValidation, error).exit();
         }
     }
+    let development_home = if matches!(cli.command, Action::Doctor | Action::Dev { .. }) {
+        use sha2::{Digest,
+                   Sha256};
+        let key = Sha256::digest(root.as_os_str().as_encoded_bytes());
+        let directory = dirs::data_local_dir()
+            .context("Cannot locate the user data directory")?
+            .join("gpui-agent-dev")
+            .join(format!("{key:x}"));
+        let ancestor = directory.ancestors().find(|path| path.exists()).context("Missing development home parent")?;
+        anyhow::ensure!(
+            !ancestor.canonicalize()?.starts_with(&root),
+            "The development home must be outside the checkout"
+        );
+        directory
+    } else {
+        PathBuf::new()
+    };
     if matches!(cli.command, Action::Doctor) {
-        println!("Checkout: {}\nIsolated home: {}", root.display(), root.join(".dev/home").display());
+        println!("Checkout: {}\nIsolated home: {}", root.display(), development_home.display());
     }
-    if matches!(cli.command, Action::Dev { .. }) {
-        std::fs::create_dir_all(root.join(".dev/home"))?;
-    }
-    for command in plan::commands(&cli.command, &root) {
+    for command in plan::commands(&cli.command, &root, &development_home) {
         if let Some(code) = execute(&command, &root)? {
             return Ok(code);
         }

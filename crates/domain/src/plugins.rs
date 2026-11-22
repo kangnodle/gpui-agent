@@ -58,6 +58,8 @@ pub struct PluginSyncResult {
 pub struct PluginEnabledRequest {
     pub id: String,
     pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp_servers: Option<Vec<McpServer>>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

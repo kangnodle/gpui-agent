@@ -162,17 +162,54 @@ fn diffs_cover_staged_unstaged_renames_binary_untracked_and_literal_paths() {
     let renamed = changes.files.iter().find(|file| file.path == "renamed space.txt").unwrap();
     assert_eq!(renamed.original_path.as_deref(), Some("tracked.txt"));
     assert!(store.diff(id, "renamed space.txt").unwrap().staged.contains("rename from"));
-    let subdir = fixture.repo.join("subdir");
-    std::fs::create_dir(&subdir).unwrap();
-    let catalog = store.register(subdir.to_str().unwrap()).unwrap();
-    let child = catalog.projects[0]
-        .workspaces
-        .iter()
-        .find(|workspace| Path::new(&workspace.path).ends_with("subdir"))
-        .unwrap();
-    assert!(store.diff(child.id, "renamed space.txt").unwrap().staged.contains("rename from"));
     std::fs::write(fixture.repo.join("large.txt"), "large line\n".repeat(250_000)).unwrap();
     assert!(store.diff(id, "large.txt").unwrap().truncated);
+}
+
+#[test]
+fn registered_subdirectory_shows_only_its_side_of_each_change() {
+    let fixture = Fixture::new();
+    let store = fixture.open();
+    let subdir = fixture.repo.join("notes");
+    let sibling = fixture.repo.join("notes-old");
+    std::fs::create_dir(&subdir).unwrap();
+    std::fs::create_dir(&sibling).unwrap();
+    for (dir, name) in [
+        (&subdir, "draft.txt"),
+        (&subdir, "outgoing.txt"),
+        (&sibling, "incoming.txt"),
+        (&sibling, "other.txt"),
+    ] {
+        std::fs::write(dir.join(name), name).unwrap();
+    }
+    git(&fixture.repo, &["add", "."]);
+    git(&fixture.repo, &["commit", "-m", "notes"]);
+    git(&fixture.repo, &["mv", "notes/draft.txt", "notes/final.txt"]);
+    git(&fixture.repo, &["mv", "notes/outgoing.txt", "notes-old/moved.txt"]);
+    git(&fixture.repo, &["mv", "notes-old/incoming.txt", "notes/received.txt"]);
+    std::fs::write(sibling.join("other.txt"), "sibling edit\n").unwrap();
+    std::fs::write(subdir.join("[todo].txt"), "new note\n").unwrap();
+    let id = store.register(subdir.to_str().unwrap()).unwrap().registered_workspace_id.unwrap();
+    let changes = store.changes(id).unwrap();
+    let paths: std::collections::BTreeSet<_> = changes.files.iter().map(|file| (file.path.as_str(), file.original_path.as_deref())).collect();
+    assert_eq!(
+        paths,
+        [
+            ("notes/[todo].txt", None),
+            ("notes/final.txt", Some("notes/draft.txt")),
+            ("notes/outgoing.txt", None),
+            ("notes/received.txt", None),
+        ]
+        .into()
+    );
+    assert!(store.diff(id, "notes/final.txt").unwrap().staged.contains("rename from notes/draft.txt"));
+    for file in ["notes/outgoing.txt", "notes/received.txt"] {
+        let diff = store.diff(id, file).unwrap();
+        assert!(diff.staged.contains(file));
+        assert!(!diff.staged.contains("notes-old/"));
+    }
+    assert!(store.diff(id, "notes/[todo].txt").unwrap().unstaged.contains("+new note"));
+    assert!(store.diff(id, "notes-old/other.txt").is_err());
 }
 #[test]
 fn canonical_project_registration_restores_ids_and_supports_plain_folders() {

@@ -393,7 +393,10 @@ impl ChatApp {
             match result {
                 | Ok(catalog) => {
                     let imported = std::mem::take(&mut *self.plugins.synced.lock().unwrap_or_else(|e| e.into_inner()));
-                    for id in imported {
+                    for id in imported
+                        .into_iter()
+                        .filter(|id| catalog.plugins.iter().any(|plugin| plugin.enabled && &plugin.id == id))
+                    {
                         let selection = &mut self.conversations[self.selected].guidance;
                         if !selection.extensions.plugins.contains(&id) {
                             let _ = selection.toggle_extension(gpui_agent_presentation::ExtensionKind::Plugin, &id);
@@ -609,6 +612,7 @@ impl ChatApp {
                 let request = PluginEnabledRequest {
                     id: diagnostic.source.clone(),
                     enabled: false,
+                    mcp_servers: None,
                 };
                 diagnostic_row =
                     diagnostic_row.child(
@@ -716,6 +720,7 @@ impl ChatApp {
         let enabled = PluginEnabledRequest {
             id: plugin.id.clone(),
             enabled: !plugin.enabled,
+            mcp_servers: (!plugin.enabled).then(|| plugin.manifest.mcp_servers.clone()),
         };
         let remove = PluginRemoveRequest {
             id: plugin.id.clone(),
@@ -734,15 +739,10 @@ impl ChatApp {
             detail = detail.child(note(format!("{} · {}", skill.name, skill.description), cx));
         }
         for server in plugin.manifest.mcp_servers {
-            let name = match server {
-                | McpServer::Stdio {
-                    name, ..
-                }
-                | McpServer::Http {
-                    name, ..
-                } => name,
-            };
-            detail = detail.child(note(format!("MCP · {name}"), cx));
+            detail = detail.child(note(format!("MCP · {}", server.name()), cx));
+            if !plugin.enabled {
+                detail = detail.child(note(serde_json::json!(server).to_string(), cx));
+            }
         }
         detail = detail.child(
             row()

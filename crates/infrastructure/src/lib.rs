@@ -13,8 +13,10 @@ mod projects;
 mod reloading;
 mod runtimes;
 mod settings;
+mod tokens;
 
 use anyhow::Result;
+pub(crate) use files::PrivateFileIdentity;
 use gpui_agent::Agent;
 use gpui_agent_application::{Application,
                              ports::AgentRuntime};
@@ -27,10 +29,11 @@ pub use mcp_sessions::McpSessions;
 pub use plugins::PluginFiles;
 pub use projects::Projects;
 pub use settings::{Settings,
-                   load_or_create_token,
                    new_token};
 use std::{path::Path,
           sync::Arc};
+pub use tokens::{load_or_create_token,
+                 read_private_token};
 
 pub fn application_from_agents(agents: [Result<Agent>; gpui_agent_contracts::PROVIDERS.len()], database: &Path, cwd: &Path) -> Result<Application> {
     Ok(Application::new(
@@ -39,7 +42,7 @@ pub fn application_from_agents(agents: [Result<Agent>; gpui_agent_contracts::PRO
     )
     .with_clock(Arc::new(SystemClock))
     .with_diagnostics(Arc::new(StderrDiagnostics))
-    .with_file_context(Arc::new(files::Files::new(cwd)?))
+    .with_file_context(Arc::new(files::Files::with_private_paths(&cwd.canonicalize()?, &[database.to_path_buf()])?))
     .with_guidance(gpui_agent_application::Guidance::new(Arc::new(GuidanceFiles::new(
         database.parent().unwrap_or(cwd),
         cwd,
@@ -73,26 +76,43 @@ impl Settings {
         Ok(Projects::open(self.clone(), application)?.service())
     }
 
+    fn workspace_files(&self) -> Result<files::Files> {
+        let home = std::path::PathBuf::from(projects::canonical(&self.guidance_home)?);
+        let (mut private_paths, identities): (Vec<_>, Vec<_>) = self.private_tokens.iter().cloned().unzip();
+        if !self.cwd.strip_prefix(home.join("worktrees")).is_ok_and(|path| path.components().count() >= 2) {
+            private_paths.push(home.clone());
+        }
+        let account_home = std::path::PathBuf::from(projects::canonical(&self.home)?);
+        if account_home != home {
+            private_paths.push(account_home);
+        }
+        files::Files::with_private_paths_and_identities(&self.cwd, &private_paths, &identities)
+    }
+
     pub fn application(&self) -> Result<Application> {
         let cwd = projects::canonical(&std::path::absolute(&self.cwd)?)?;
-        let settings = Self {
-            cwd: std::path::PathBuf::from(cwd),
+        Self {
+            cwd: cwd.into(),
             ..self.clone()
-        };
+        }
+        .registered_application()
+    }
+
+    fn registered_application(&self) -> Result<Application> {
         Ok(Application::new(
             gpui_agent_domain::PROVIDERS.map(|provider| {
                 Ok(Arc::new(reloading::Reloading {
-                    settings: settings.clone(),
+                    settings: self.clone(),
                     provider,
                 }) as Arc<dyn AgentRuntime>)
             }),
-            Arc::new(History::open(&settings.home.join("history.sqlite3"), &settings.cwd)?),
+            Arc::new(History::open(&self.home.join("history.sqlite3"), &self.cwd)?),
         )
         .with_clock(Arc::new(SystemClock))
         .with_diagnostics(Arc::new(StderrDiagnostics))
-        .with_file_context(Arc::new(files::Files::new(&settings.cwd)?))
-        .with_guidance(settings.guidance()?)
-        .with_plugins(settings.plugins()?)
-        .with_automatic_computer(cfg!(windows) && settings.mcp_sessions.is_some()))
+        .with_file_context(Arc::new(self.workspace_files()?))
+        .with_guidance(self.guidance()?)
+        .with_plugins(self.plugins()?)
+        .with_automatic_computer(cfg!(windows) && self.mcp_sessions.is_some()))
     }
 }

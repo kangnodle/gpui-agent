@@ -150,7 +150,7 @@ impl JobStore {
                     home: settings.home.join("accounts").join(&scope.account_id),
                     ..settings.clone()
                 };
-                scoped.application()
+                scoped.registered_application()
             }),
         })
     }

@@ -68,6 +68,8 @@ pub enum Action {
         surface: Surface,
         #[arg(long, help = "Allow scoped conversation/job updates")]
         mcp_write: bool,
+        #[arg(last = true)]
+        arguments: Vec<OsString>,
     },
 }
 
@@ -100,7 +102,7 @@ pub fn unsupported_filter(action: &Action, manifests: &[toml::Value]) -> Option<
     None
 }
 
-pub fn commands(action: &Action, root: &Path) -> Vec<Vec<OsString>> {
+pub fn commands(action: &Action, root: &Path, development_home: &Path) -> Vec<Vec<OsString>> {
     match action {
         | Action::Doctor => vec![
             strings(&["cargo", "--version"]),
@@ -111,7 +113,10 @@ pub fn commands(action: &Action, root: &Path) -> Vec<Vec<OsString>> {
         | Action::Fmt => vec![strings(&["cargo", "fmt", "--all", "--", "--check"])],
         | Action::Deny => vec![strings(&["cargo", "deny", "check"])],
         | Action::Unused => vec![strings(&["cargo", "machete", "crates", "apps"])],
-        | Action::Audit => [Action::Deny, Action::Unused].iter().flat_map(|action| commands(action, root)).collect(),
+        | Action::Audit => [Action::Deny, Action::Unused]
+            .iter()
+            .flat_map(|action| commands(action, root, development_home))
+            .collect(),
         // Geiger output is parsed, not just exit-coded; see `unsafe_commands`.
         | Action::Unsafe => Vec::new(),
         | Action::ClientFixture => vec![strings(&[
@@ -128,29 +133,34 @@ pub fn commands(action: &Action, root: &Path) -> Vec<Vec<OsString>> {
         | Action::Dev {
             surface,
             mcp_write,
+            arguments,
         } => {
             let package = match surface {
                 | Surface::Server => "gpui-agent-server",
                 | Surface::Desktop => "gpui-agent-desktop",
             };
-            let mut command = vec![
-                "cargo".into(),
-                "run".into(),
-                "--locked".into(),
-                "--package".into(),
-                package.into(),
-                "--".into(),
-                "--cwd".into(),
-                root.into(),
-                "--home".into(),
-                root.join(".dev/home").into(),
-            ];
-            if matches!(surface, Surface::Server) {
+            let mut command = vec!["cargo".into(), "run".into(), "--locked".into(), "--package".into(), package.into(), "--".into()];
+            let supplied = |option: &str| {
+                arguments.iter().any(|arg| {
+                    arg == option
+                        || arg
+                            .as_encoded_bytes()
+                            .strip_prefix(option.as_bytes())
+                            .is_some_and(|rest| rest.starts_with(b"="))
+                })
+            };
+            for (option, value) in [("--cwd", root), ("--home", development_home)] {
+                if !supplied(option) {
+                    command.extend([option.into(), value.into()]);
+                }
+            }
+            if matches!(surface, Surface::Server) && !supplied("--port") {
                 command.extend(["--port".into(), "0".into()]);
             }
-            if *mcp_write {
+            if *mcp_write && !supplied("--mcp-write") {
                 command.push("--mcp-write".into());
             }
+            command.extend(arguments.iter().cloned());
             vec![command]
         },
         | Action::Lint(scope)

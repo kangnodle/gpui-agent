@@ -2,7 +2,8 @@ use crate::{Application,
             ApplicationError,
             ApplicationResult,
             ErrorKind};
-use gpui_agent_domain::{PluginCatalog,
+use gpui_agent_domain::{McpServer,
+                        PluginCatalog,
                         PluginImportRequest,
                         PluginSyncResult,
                         validate_plugin_id};
@@ -43,11 +44,13 @@ impl Plugins {
             .map_err(|error| ApplicationError(ErrorKind::Invalid, error.to_string()))
     }
 
-    pub async fn set_enabled(&self, id: &str, enabled: bool) -> ApplicationResult<PluginCatalog> {
+    pub async fn set_enabled(&self, id: &str, enabled: bool) -> ApplicationResult<PluginCatalog> { self.set_enabled_reviewed(id, enabled, None).await }
+
+    pub async fn set_enabled_reviewed(&self, id: &str, enabled: bool, expected: Option<Vec<McpServer>>) -> ApplicationResult<PluginCatalog> {
         validate_plugin_id(id)?;
         let source = self.0.clone();
         let id = id.to_owned();
-        tokio::task::spawn_blocking(move || source.set_enabled(&id, enabled))
+        tokio::task::spawn_blocking(move || source.set_enabled_reviewed(&id, enabled, expected.as_deref()))
             .await
             .map_err(anyhow::Error::from)?
             .map_err(|error| ApplicationError(ErrorKind::Invalid, error.to_string()))

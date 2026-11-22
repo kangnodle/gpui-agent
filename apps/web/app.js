@@ -712,13 +712,14 @@ function start() {
       text(panel,'p',detail.manifest.description);
       text(panel,'small',`${scopeLabel(detail)}${detail.manifest.version?` · v${detail.manifest.version}`:''} · ${detail.enabled?'활성화됨':'비활성화됨'}`);
       text(panel,'p',counts(detail));
-      button(panel,detail.enabled?"비활성화":"활성화",()=>changePlugin('/v1/plugins/enabled','PUT',{id:detail.id,enabled:!detail.enabled},detail.enabled?"비활성화되었습니다.":"활성화되었습니다. 다음 턴부터 적용됩니다.")).disabled=locked;
+      button(panel,detail.enabled?"비활성화":"활성화",()=>changePlugin('/v1/plugins/enabled','PUT',{id:detail.id,enabled:!detail.enabled,mcp_servers:detail.manifest.mcp_servers},detail.enabled?"비활성화되었습니다.":"활성화되었습니다. 다음 턴부터 적용됩니다.")).disabled=locked;
       text(panel,'h3','포함된 스킬');
       if (!detail.skills.length) text(panel,'p','포함된 스킬이 없습니다.');
       for (const skill of detail.skills) { text(panel,'h4',skill.display_name||skill.name); text(panel,'p',skill.description); }
       text(panel,'h3','도구 연결');
       if (!detail.manifest.mcp_servers.length) text(panel,'p','MCP 연결이 필요하지 않습니다.');
       for (const server of detail.manifest.mcp_servers) text(panel,'p',`${server.name} · ${detail.enabled?(server.oauth?'계정 연결 상태를 확인하세요':'활성화됨 · 연결은 실행 시 확인'):'플러그인 비활성화됨'}`);
+      if (!detail.enabled && detail.manifest.mcp_servers.length) text(panel,'pre',JSON.stringify(detail.manifest.mcp_servers,null,2));
       if (detail.manifest.mcp_servers.length) button(panel,"MCP 연결 · 인증 관리",()=>showPluginTab('mcp')).disabled=locked;
       const remove=document.createElement('div'); remove.className='plugin-remove'; panel.append(remove);
       if (pluginState.removing===detail.id) {

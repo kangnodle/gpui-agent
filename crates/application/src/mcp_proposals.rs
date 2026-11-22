@@ -96,7 +96,7 @@ impl McpProposals {
             let facts = collect_host_facts(&input.server, host);
             let (plugin_id, request) = McpProposalContext::plan_import(&input, &facts).map_err(invalid)?;
             plugins.import(request).await?;
-            if let Err(error) = plugins.set_enabled(&plugin_id, true).await {
+            if let Err(error) = plugins.set_enabled_reviewed(&plugin_id, true, Some(vec![input.server])).await {
                 let _ = plugins.remove(&plugin_id).await;
                 return Err(error);
             }
@@ -138,7 +138,7 @@ mod tests {
 
         fn import(&self, _: &PluginImportRequest) -> anyhow::Result<PluginCatalog> { self.catalog() }
 
-        fn set_enabled(&self, _: &str, _: bool) -> anyhow::Result<PluginCatalog> { self.catalog() }
+        fn set_enabled_reviewed(&self, _: &str, _: bool, _: Option<&[McpServer]>) -> anyhow::Result<PluginCatalog> { self.catalog() }
 
         fn remove(&self, _: &str) -> anyhow::Result<PluginCatalog> { self.catalog() }
 

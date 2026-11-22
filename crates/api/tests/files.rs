@@ -19,7 +19,10 @@ async fn workspace_file_picker_lists_the_selected_host_workspace_without_reading
     std::fs::write(first.join(".git/private"), "Hidden metadata").unwrap();
     std::fs::write(second.join("only-second.txt"), "Other workspace").unwrap();
     // Given a host with two workspaces, both browsed over authenticated HTTP.
-    let settings = Settings::discover(first.clone(), Some(temp.path().join("home"))).unwrap();
+    let mut settings = Settings::discover(first.clone(), Some(first.join("host-state"))).unwrap();
+    let private_token = second.join("operator-credential");
+    settings.load_host_token(&private_token).unwrap();
+    std::fs::rename(&private_token, second.join("moved-credential")).unwrap();
     let app = settings.application().unwrap();
     let workspaces = settings.workspaces(app.clone()).unwrap();
     let api = Api::new(app, TOKEN.into()).unwrap().with_workspaces(workspaces);
@@ -70,6 +73,7 @@ async fn workspace_file_picker_lists_the_selected_host_workspace_without_reading
         let entries = listing["entries"].as_array().unwrap();
         assert!(entries.iter().any(|entry| entry["path"] == expected && entry["directory"] == false));
         assert!(!entries.iter().any(|entry| entry["path"] == absent || entry["path"] == ".git"));
+        assert!(!entries.iter().any(|entry| entry["path"] == "host-state" || entry["path"] == "moved-credential"));
         assert!(!listing.to_string().contains("Nested context"), "Listing never reads file contents");
     }
     let listing: Value = client
@@ -108,6 +112,17 @@ async fn workspace_file_picker_lists_the_selected_host_workspace_without_reading
     );
     // Selection is separate from the existing explicit, ranged context
     // snapshot.
+    for (workspace, path) in [(first_id, "host-state/history.sqlite3"), (second_id, "moved-credential")] {
+        let response = client
+            .post(format!("{origin}/v1/providers/claude/context"))
+            .bearer_auth(TOKEN)
+            .header("X-KND-Workspace", workspace)
+            .json(&json!({"path":path}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
     let context: Value = client
         .post(format!("{origin}/v1/providers/claude/context"))
         .bearer_auth(TOKEN)

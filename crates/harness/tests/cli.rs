@@ -191,7 +191,8 @@ fn given_a_locked_checkout_when_setup_runs_then_fetch_is_locked() {
 }
 
 #[test]
-fn given_a_foreign_directory_when_dev_runs_then_home_is_checkout_local() {
+fn given_a_foreign_directory_when_dev_runs_then_home_is_private_and_stable_across_surfaces() {
+    let mut shared_home = None;
     for surface in ["server", "desktop"] {
         for write in [false, true] {
             let sandbox = support::Sandbox::new();
@@ -201,6 +202,12 @@ fn given_a_foreign_directory_when_dev_runs_then_home_is_checkout_local() {
             }
             support::assert_exit(&sandbox.harness(&args).output().unwrap(), 0);
             let root = support::root();
+            let calls = sandbox.calls();
+            let home = std::path::PathBuf::from(&calls[0][8]);
+            assert!(home.is_absolute() && !home.starts_with(&root));
+            if let Some(previous) = shared_home.replace(home.clone()) {
+                assert_eq!(previous, home);
+            }
             let mut expected = vec![
                 "run".into(),
                 "--locked".into(),
@@ -210,7 +217,7 @@ fn given_a_foreign_directory_when_dev_runs_then_home_is_checkout_local() {
                 "--cwd".into(),
                 root.display().to_string(),
                 "--home".into(),
-                root.join(".dev/home").display().to_string(),
+                home.display().to_string(),
             ];
             if surface == "server" {
                 expected.extend(["--port".into(), "0".into()]);
@@ -221,6 +228,26 @@ fn given_a_foreign_directory_when_dev_runs_then_home_is_checkout_local() {
             assert_eq!(sandbox.calls(), [expected]);
         }
     }
+}
+
+#[test]
+fn desktop_development_forwards_explicit_home_and_workspace() {
+    let sandbox = support::Sandbox::new();
+    let args = ["dev", "--surface", "desktop", "--", "--home=custom home", "--cwd", "project path"];
+    support::assert_exit(&sandbox.harness(&args).output().unwrap(), 0);
+    assert_eq!(
+        sandbox.calls(),
+        [vec![
+            "run",
+            "--locked",
+            "--package",
+            "gpui-agent-desktop",
+            "--",
+            "--home=custom home",
+            "--cwd",
+            "project path"
+        ]]
+    );
 }
 
 #[test]

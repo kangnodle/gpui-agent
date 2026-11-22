@@ -4,7 +4,28 @@ use gpui_agent_domain::*;
 use gpui_agent_infrastructure::{GuidanceFiles,
                                 PluginFiles};
 use std::{collections::BTreeMap,
-          fs};
+          fs,
+          path::Path};
+
+fn link_directory(directory: &Path, link: &Path) -> anyhow::Result<()> {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(directory, link)?;
+    #[cfg(windows)]
+    {
+        let output = std::process::Command::new("cmd")
+            .current_dir(link.parent().unwrap())
+            .args(["/D", "/C", "mklink", "/J"])
+            .arg(link.file_name().unwrap())
+            .arg(directory)
+            .output()?;
+        anyhow::ensure!(
+            output.status.success(),
+            "Could not create junction fixture: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    Ok(())
+}
 
 fn bundle(scope: &str, name: &str) -> PluginImportRequest {
     PluginImportRequest {
@@ -109,6 +130,67 @@ fn given_an_enabled_package_when_reopened_and_removed_then_scope_resources_and_s
 }
 
 #[test]
+fn repo_mcp_requires_host_approval_for_the_workspace_and_current_capabilities() -> anyhow::Result<()> {
+    let root = tempfile::tempdir()?;
+    let home = root.path().join("home");
+    let repo = root.path().join("first");
+    let other = home.join("worktrees/group/second");
+    fs::create_dir(&repo)?;
+    fs::create_dir_all(&other)?;
+    let plugins = PluginFiles::new(&home, &repo)?;
+    let other_plugins = PluginFiles::new(&home, &other)?;
+    let package = bundle("repo", "review");
+    for (directory, source) in [(&repo, &plugins), (&other, &other_plugins)] {
+        source.import(&package)?;
+        fs::write(directory.join(".agents/plugin-settings.json"), r#"{"review":true}"#)?;
+    }
+    let selected = ConversationExtensions {
+        plugins: vec!["repo:review".into()],
+        mcp: vec![],
+    };
+    assert!(plugins.mcp_servers()?.is_empty());
+    assert!(selected.mcp_names(&plugins.catalog()?).is_err());
+    plugins.set_enabled("repo:review", true)?;
+    assert_eq!(plugins.mcp_servers()?.len(), 1);
+    assert!(other_plugins.mcp_servers()?.is_empty());
+    let manifest = repo.join(".agents/plugins/review/plugin.json");
+    let original = fs::read_to_string(&manifest)?;
+    fs::write(&manifest, original.replace("example.invalid", "updated.invalid"))?;
+    assert!(plugins.mcp_servers()?.is_empty());
+    assert!(selected.mcp_names(&plugins.catalog()?).is_err());
+    plugins.set_enabled("repo:review", true)?;
+    assert_eq!(selected.mcp_names(&plugins.catalog()?).map_err(anyhow::Error::msg)?, ["fixture"]);
+    fs::write(manifest, original)?;
+    assert!(plugins.mcp_servers()?.is_empty());
+    other_plugins.set_enabled("repo:review", true)?;
+    assert_eq!(other_plugins.mcp_servers()?.len(), 1);
+    other_plugins.set_enabled("repo:review", false)?;
+    fs::write(other.join(".agents/plugin-settings.json"), r#"{"review":true}"#)?;
+    assert!(other_plugins.mcp_servers()?.is_empty());
+    Ok(())
+}
+
+#[test]
+fn repo_mcp_approval_requires_a_guidance_home_outside_the_workspace() -> anyhow::Result<()> {
+    let root = tempfile::tempdir()?;
+    let repo = root.path().join("repo");
+    fs::create_dir(&repo)?;
+    let external = root.path().join("external");
+    fs::create_dir(&external)?;
+    let linked_home = repo.join("linked-home");
+    link_directory(&external, &linked_home)?;
+    let inside = repo.join("home");
+    let plugins = PluginFiles::new(&inside, &repo)?;
+    plugins.import(&bundle("repo", "review"))?;
+    for home in [inside, linked_home] {
+        let plugins = PluginFiles::new(&home, &repo)?;
+        assert!(plugins.set_enabled("repo:review", true).is_err());
+        assert!(plugins.mcp_servers()?.is_empty());
+    }
+    Ok(())
+}
+
+#[test]
 fn given_invalid_and_case_colliding_packages_when_imported_then_no_partial_install_is_visible() -> anyhow::Result<()> {
     let root = tempfile::tempdir()?;
     let plugins = PluginFiles::new(&root.path().join("home"), root.path())?;
@@ -150,17 +232,7 @@ fn given_a_linked_installed_resource_when_collected_or_removed_then_outside_file
     let outside = root.path().join("outside");
     fs::create_dir(&outside)?;
     fs::write(outside.join("keep.txt"), "untouched")?;
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(&outside, package.join("escape"))?;
-    #[cfg(windows)]
-    {
-        let output = std::process::Command::new("cmd")
-            .current_dir(&package)
-            .args(["/D", "/C", "mklink", "/J", "escape"])
-            .arg(&outside)
-            .output()?;
-        assert!(output.status.success(), "Could not create junction fixture");
-    }
+    link_directory(&outside, &package.join("escape"))?;
     assert!(PluginFiles::collect_plugin(&package, "user".into()).is_err());
     assert!(plugins.remove("user:review").is_err());
     assert!(plugins.mcp_servers()?.is_empty());
@@ -287,6 +359,29 @@ fn given_no_claude_profile_when_synced_then_nothing_is_imported() -> anyhow::Res
     let plugins = PluginFiles::new(&root.path().join("home"), root.path())?;
     let result = plugins.sync_claude("user", false)?;
     assert!(result.imported.is_empty() && result.skipped.is_empty() && result.catalog.plugins.is_empty());
+    Ok(())
+}
+
+#[test]
+fn claude_sync_imports_mcp_packages_for_review_in_both_scopes() -> anyhow::Result<()> {
+    let root = tempfile::tempdir()?;
+    let home = root.path().join("home");
+    let repo = root.path().join("repo");
+    fs::create_dir(&repo)?;
+    let install = home.join("claude/plugins/cache/fixture");
+    fs::create_dir_all(&install)?;
+    fs::write(install.join("plugin.json"), &bundle("user", "review").files["plugin.json"])?;
+    fs::write(
+        home.join("claude/plugins/installed_plugins.json"),
+        serde_json::to_vec(&serde_json::json!({"plugins":{"review@fixture":[{"installPath": install}]}}))?,
+    )?;
+    let plugins = PluginFiles::new(&home, &repo)?;
+    for scope in ["user", "repo"] {
+        let result = plugins.sync_claude(scope, true)?;
+        assert_eq!(result.imported, [format!("{scope}:review")]);
+        assert!(result.catalog.plugins.iter().all(|plugin| !plugin.enabled));
+        assert!(plugins.mcp_servers()?.is_empty());
+    }
     Ok(())
 }
 

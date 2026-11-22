@@ -30,6 +30,7 @@ pub struct GuidanceFiles {
     home: PathBuf,
     root: PathBuf,
     directories: Vec<PathBuf>,
+    plugins: crate::PluginFiles,
 }
 
 impl GuidanceFiles {
@@ -128,7 +129,7 @@ impl GuidanceFiles {
     }
 
     pub fn new(home: &Path, cwd: &Path) -> Result<Self> {
-        fs::create_dir_all(home)?;
+        let plugins = crate::PluginFiles::new(home, cwd)?;
         let home = home.canonicalize()?;
         let cwd = cwd.canonicalize()?;
         ensure!(cwd.is_dir(), "Guidance workspace must be a directory");
@@ -147,6 +148,7 @@ impl GuidanceFiles {
             home,
             root,
             directories,
+            plugins,
         })
     }
 
@@ -452,7 +454,7 @@ impl GuidanceSource for GuidanceFiles {
                 }
             }
         }
-        let plugins = crate::PluginFiles::new(&self.home, self.directories.last().context("Missing workspace")?)?.catalog()?;
+        let plugins = self.plugins.catalog()?;
         snapshot.diagnostics.extend(plugins.diagnostics);
         for plugin in plugins.plugins.into_iter().filter(|plugin| plugin.enabled) {
             for mut skill in plugin.skills {
@@ -477,14 +479,13 @@ impl GuidanceSource for GuidanceFiles {
             .into_iter()
             .find(|skill| skill.id == id && skill.enabled)
             .context("Skill is unavailable in this workspace")?;
-        let plugins = crate::PluginFiles::new(&self.home, self.directories.last().context("Missing workspace")?)?;
         let directory = if id.starts_with("plugin:") {
-            plugins.skill_directory(id)?
+            self.plugins.skill_directory(id)?
         } else {
             self.manifest(id)?.1
         };
         if id.starts_with("plugin:") {
-            plugins.read_resource(id, resource)?;
+            self.plugins.read_resource(id, resource)?;
         }
         let path = Self::resolve(&directory.join(resource), &directory)?;
         let text = Self::read(&path, &directory, MAX_SKILL_BYTES)?;

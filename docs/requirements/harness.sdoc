@@ -56,7 +56,7 @@ UID: HARNESS-ISOLATION
 STATUS: Active
 TITLE: Isolation
 STATEMENT: >>>
-dev uses this checkout's .dev/home and an OS-assigned server port; Rust is pinned to nightly-2026-09-27 in ``rust-toolchain.toml``.
+dev uses a checkout-specific home outside the checkout and an OS-assigned server port; Rust is pinned to nightly-2026-09-27 in ``rust-toolchain.toml``.
 <<<
 RELATIONS:
 - TYPE: File
@@ -2388,5 +2388,79 @@ STATEMENT: >>>
    cargo harness test --package gpui-agent-desktop --filter plugins
    cargo test --locked -p gpui-agent-api --test jobs -- --oauth-mcp-only
 <<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Workspace security boundaries
+
+[REQUIREMENT]
+UID: HARNESS-SECURITY-1
+STATUS: Active
+TITLE: Operator approval for repository plugins
+STATEMENT: >>>
+Runtime MCP configuration from a repository plugin requires operator approval stored outside the workspace and bound to its workspace and MCP configuration. A changed configuration requires fresh approval. Automatic imports may enable skill-only packages. Packages that introduce MCP servers remain disabled until an operator reviews them.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/tests/plugins.rs
+- TYPE: File
+  VALUE: crates/api/tests/plugins.rs
+- TYPE: File
+  VALUE: apps/cli/tests/plugins.rs
+
+[REQUIREMENT]
+UID: HARNESS-SECURITY-2
+STATUS: Active
+TITLE: Scoped workspace changes and diffs
+STATEMENT: >>>
+Git change listings and diffs for a registered directory expose only changes beneath that directory, including both names of a rename.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/src/project_tests.rs
+- TYPE: File
+  VALUE: crates/api/tests/project_tools.rs
+
+[REQUIREMENT]
+UID: HARNESS-SECURITY-3
+STATUS: Active
+TITLE: Private development state
+STATEMENT: >>>
+Default development state lives outside the checkout. Workspace listings and attachments protect application state and custom host token locations, including legacy development state and active token files renamed within the workspace.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/harness/tests/cli.rs
+- TYPE: File
+  VALUE: crates/harness/tests/scripts.rs
+- TYPE: File
+  VALUE: crates/api/tests/files.rs
+- TYPE: File
+  VALUE: crates/infrastructure/src/files.rs
+
+[REQUIREMENT]
+UID: HARNESS-SECURITY-4
+STATUS: Active
+TITLE: Handle-bound file context
+STATEMENT: >>>
+Workspace file listing and attachment reads remain confined while paths change. Content is read from the same authorized regular file handle.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/src/files.rs
+
+[REQUIREMENT]
+UID: HARNESS-SECURITY-5
+STATUS: Active
+TITLE: Private existing API tokens
+STATEMENT: >>>
+Before reading an existing token, the host and desktop client verify the opened regular file. Unix requires the effective owner and no group or other permissions. Windows requires a private file ACL. New tokens are private before the first credential bytes are written.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: crates/infrastructure/src/settings.rs
+- TYPE: File
+  VALUE: crates/infrastructure/src/tokens.rs
 
 [[/SECTION]]

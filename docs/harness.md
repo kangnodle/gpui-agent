@@ -44,15 +44,14 @@ including element bounds, hit testing, and text geometry. It needs no account,
 screen reader, or pointer input. The pinned adapter patch and its removal
 condition are documented in `vendor/accesskit_windows/GPUI-AGENT-PATCH.md`.
 
-`setup` fetches locked dependencies. `dev` retains state in `.dev/home` under the
-checkout; use a separate checkout for another environment. It does not copy real
+`setup` fetches locked dependencies. `dev` retains state in a checkout-specific directory under the OS user data directory.
+`doctor` prints its path. Use a separate checkout for another environment. It does not copy real
 profiles, consume pairing links, or launch a login browser. The server binds to
 loopback and prints its chosen address. Authenticate explicitly when needed.
 `check` never launches the desktop or formats files in place. The older
-`scripts/dev.*` and `scripts/run.*` use checkout-local `.gpui-agent-dev` by
-default, keeping development data separate from the installed application's
-`~/.gpui-agent`. The run scripts still honor an explicit `--home`. Release
-scripts keep their existing behavior.
+`scripts/dev.*` and `scripts/run.*` use the same development home. Explicit `--home` values are honored.
+Previously created `.dev/home` and `.gpui-agent-dev` directories may contain credentials.
+Stop the old host before moving any required state to the location printed by `doctor`.
 
 The desktop opens the saved project catalog without registering its startup
 directory. An empty home therefore shows the project opener until the user

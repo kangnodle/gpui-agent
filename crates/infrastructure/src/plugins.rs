@@ -16,16 +16,27 @@ use std::{collections::BTreeMap,
 pub struct PluginFiles {
     home: PathBuf,
     root: PathBuf,
+    repo_approval_directory: Option<PathBuf>,
 }
 impl PluginFiles {
     pub fn new(home: &Path, cwd: &Path) -> Result<Self> {
         fs::create_dir_all(home)?;
-        let home = home.canonicalize()?;
-        let cwd = cwd.canonicalize()?;
-        let root = cwd;
+        let root = cwd.canonicalize()?;
+        let configured_home = std::path::absolute(home)?;
+        let home = configured_home.canonicalize()?;
+        let workspace = Sha256::digest(root.as_os_str().as_encoded_bytes());
+        let directory = home.join("repo-plugin-approvals").join(format!("{workspace:x}"));
+        let mut repo_approval_directory = (!directory.starts_with(&root)).then_some(directory);
+        for ancestor in configured_home.ancestors() {
+            if ancestor.canonicalize()?.starts_with(&root) {
+                repo_approval_directory = None;
+                break;
+            }
+        }
         Ok(Self {
             home,
             root,
+            repo_approval_directory,
         })
     }
 
@@ -91,15 +102,62 @@ impl PluginFiles {
 
     fn save_settings(&self, scope: &str, settings: &BTreeMap<String, bool>) -> Result<()> {
         let path = self.settings_path(scope)?;
-        Self::checked(path.parent().context("Missing plugin settings parent")?, self.base(scope)?, true)?;
-        Self::checked(&path, self.base(scope)?, false)?;
         let bytes = serde_json::to_vec(settings)?;
         ensure!(bytes.len() <= 256 * 1024, "Plugin settings exceed capacity");
-        let mut file = tempfile::NamedTempFile::new_in(path.parent().context("Missing plugin settings parent")?)?;
-        file.write_all(&bytes)?;
+        Self::write_settings(&path, self.base(scope)?, &bytes)
+    }
+
+    fn write_settings(path: &Path, base: &Path, bytes: &[u8]) -> Result<()> {
+        let parent = path.parent().context("Missing plugin settings parent")?;
+        Self::checked(parent, base, true)?;
+        Self::checked(path, base, false)?;
+        let mut file = tempfile::NamedTempFile::new_in(parent)?;
+        file.write_all(bytes)?;
         file.as_file().sync_all()?;
         file.persist(path)?;
         Ok(())
+    }
+
+    fn mcp_fingerprint(servers: &[McpServer]) -> Result<String> { Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(servers)?))) }
+
+    fn repo_approval(&self, name: &str) -> Result<Option<Vec<u8>>> {
+        let Some(directory) = &self.repo_approval_directory else {
+            return Ok(None);
+        };
+        let path = directory.join(name);
+        Self::checked(&path, &self.home, false)?;
+        match fs::File::open(path) {
+            | Ok(file) => {
+                let mut bytes = Vec::new();
+                file.take(65).read_to_end(&mut bytes)?;
+                Ok(Some(bytes))
+            },
+            | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            | Err(error) => Err(error.into()),
+        }
+    }
+
+    fn update_repo_approval(&self, scope: &str, name: &str, servers: &[McpServer]) -> Result<()> {
+        if scope != "repo" {
+            return Ok(());
+        }
+        let Some(directory) = &self.repo_approval_directory else {
+            ensure!(
+                servers.is_empty(),
+                "Select a guidance home outside this workspace to approve plugin MCP servers"
+            );
+            return Ok(());
+        };
+        let path = directory.join(name);
+        if servers.is_empty() {
+            Self::checked(&path, &self.home, false)?;
+            return match fs::remove_file(path) {
+                | Ok(()) => Ok(()),
+                | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                | Err(error) => Err(error.into()),
+            };
+        }
+        Self::write_settings(&path, &self.home, Self::mcp_fingerprint(servers)?.as_bytes())
     }
 
     pub(crate) fn lock(&self) -> Result<fs::File> {
@@ -181,7 +239,11 @@ impl PluginFiles {
             directory.file_name().and_then(|name| name.to_str()) == Some(plugin.manifest.name.as_str()),
             "Installed plugin name differs from directory"
         );
-        plugin.enabled = enabled;
+        plugin.enabled = if scope == "repo" && !plugin.manifest.mcp_servers.is_empty() {
+            self.repo_approval(&plugin.manifest.name)?.as_deref() == Some(Self::mcp_fingerprint(&plugin.manifest.mcp_servers)?.as_bytes())
+        } else {
+            enabled
+        };
         for skill in &mut plugin.skills {
             let path = skill.id.strip_prefix(&format!("plugin:{}/", plugin.id)).context("Invalid plugin skill ID")?;
             let auxiliary = request
@@ -251,11 +313,12 @@ impl PluginFiles {
             let Ok((scope, name)) = validate_plugin_id(&diagnostic.source) else {
                 continue;
             };
-            ensure!(
-                !self.settings(scope)?.get(name).copied().unwrap_or(false),
-                "Enabled plugin needs attention before using MCP: {}",
-                diagnostic.source
-            );
+            let enabled = if scope == "repo" {
+                self.repo_approval(name)?.is_some()
+            } else {
+                self.settings(scope)?.get(name).copied().unwrap_or(false)
+            };
+            ensure!(!enabled, "Enabled plugin needs attention before using MCP: {}", diagnostic.source);
         }
         let servers: Vec<_> = catalog.plugins.into_iter().filter(|p| p.enabled).flat_map(|p| p.manifest.mcp_servers).collect();
         validate_mcp(&servers).map_err(anyhow::Error::msg)?;
@@ -341,7 +404,10 @@ impl PluginSource for PluginFiles {
                     let plugin = request.validate().map_err(anyhow::Error::msg)?;
                     ensure!(!installed.contains_key(&plugin.id), "Already installed");
                     self.import(&request)?;
-                    if enable && let Err(error) = self.set_enabled(&plugin.id, true) {
+                    if enable
+                        && plugin.manifest.mcp_servers.is_empty()
+                        && let Err(error) = self.set_enabled_reviewed(&plugin.id, true, Some(&[]))
+                    {
                         notes.push(GuidanceDiagnostic {
                             source: key.clone(),
                             message: format!("Imported but not enabled: {error}"),
@@ -391,19 +457,21 @@ impl PluginSource for PluginFiles {
         Self::collect_plugin(staging.path(), request.scope.clone())?;
         let mut settings = self.settings(&request.scope)?;
         settings.remove(&plugin.manifest.name);
+        self.update_repo_approval(&request.scope, &plugin.manifest.name, &[])?;
         self.save_settings(&request.scope, &settings)?;
         Self::checked(&parent, self.base(&request.scope)?, false)?;
         fs::rename(staging.path(), target)?;
         self.catalog()
     }
 
-    fn set_enabled(&self, id: &str, enabled: bool) -> Result<PluginCatalog> {
+    fn set_enabled_reviewed(&self, id: &str, enabled: bool, expected: Option<&[McpServer]>) -> Result<PluginCatalog> {
         let (scope, name) = validate_plugin_id(id).map_err(anyhow::Error::msg)?;
         let _lock = self.lock()?;
         if !enabled {
             let target = self.directory(scope)?.join(name);
             Self::checked(&target, self.base(scope)?, false)?;
             ensure!(Self::regular(&target)?.is_dir(), "Plugin not found");
+            self.update_repo_approval(scope, name, &[])?;
             let mut settings = self.settings(scope)?;
             settings.insert(name.into(), false);
             self.save_settings(scope, &settings)?;
@@ -411,6 +479,13 @@ impl PluginSource for PluginFiles {
         }
         let mut catalog = self.catalog()?;
         let plugin = catalog.plugins.iter_mut().find(|p| p.id == id).context("Plugin not found")?;
+        let approved = plugin.manifest.mcp_servers.clone();
+        if let Some(expected) = expected {
+            ensure!(
+                Self::mcp_fingerprint(expected)? == Self::mcp_fingerprint(&approved)?,
+                "Plugin MCP configuration changed. Review the current configuration before enabling it."
+            );
+        }
         plugin.enabled = enabled;
         let servers: Vec<_> = catalog
             .plugins
@@ -422,9 +497,12 @@ impl PluginSource for PluginFiles {
         let mut effective = gpui_agent::load_mcp_config(&self.home)?;
         effective.extend(servers);
         validate_mcp(&effective).map_err(|error| anyhow::anyhow!("Plugin MCP conflicts with common settings: {error}"))?;
-        let mut settings = self.settings(scope)?;
-        settings.insert(name.into(), enabled);
-        self.save_settings(scope, &settings)?;
+        self.update_repo_approval(scope, name, &approved)?;
+        if scope != "repo" || approved.is_empty() {
+            let mut settings = self.settings(scope)?;
+            settings.insert(name.into(), enabled);
+            self.save_settings(scope, &settings)?;
+        }
         self.catalog()
     }
 
@@ -437,6 +515,7 @@ impl PluginSource for PluginFiles {
         Self::read_bundle(&target, &target, scope.into())?;
         let mut settings = self.settings(scope)?;
         settings.remove(name);
+        self.update_repo_approval(scope, name, &[])?;
         self.save_settings(scope, &settings)?;
         let removed = tempfile::tempdir_in(&parent)?;
         // Publish removal atomically; TempDir owns deletion inside this scope.

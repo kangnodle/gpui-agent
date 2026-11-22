@@ -19,6 +19,22 @@ fn catalog(root: &std::path::Path, arguments: &[&str]) -> serde_json::Value {
 }
 
 #[test]
+fn repo_mcp_enable_approves_the_current_manifest() -> anyhow::Result<()> {
+    let root = tempfile::tempdir()?;
+    let package = root.path().join("repo/.agents/plugins/review");
+    std::fs::create_dir_all(&package)?;
+    let manifest = package.join("plugin.json");
+    let contents = r#"{"name":"review","description":"Review","mcp_servers":[{"name":"fixture","url":"https://fixture.invalid/mcp"}]}"#;
+    std::fs::write(&manifest, contents)?;
+    std::fs::write(root.path().join("repo/.agents/plugin-settings.json"), r#"{"review":true}"#)?;
+    assert_eq!(catalog(root.path(), &["plugins"])["plugins"][0]["enabled"], false);
+    assert_eq!(catalog(root.path(), &["plugins", "--enable", "repo:review"])["plugins"][0]["enabled"], true);
+    std::fs::write(manifest, contents.replace("fixture.invalid", "changed.invalid"))?;
+    assert_eq!(catalog(root.path(), &["plugins"])["plugins"][0]["enabled"], false);
+    Ok(())
+}
+
+#[test]
 fn given_legacy_settings_when_managing_a_plugin_without_a_provider_then_activation_and_bytes_are_preserved() {
     let root = tempfile::tempdir().unwrap();
     let home = root.path().join("home");

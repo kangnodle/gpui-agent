@@ -37,6 +37,7 @@ pub(super) async fn serve_fixture() -> Result<()> {
     let job = server.enqueue(Provider::Codex, "default", "Computer use UI fixture", None).await?;
     server.pending(job.id, 0).await?;
     let token_file = server.root.path().join("home/api.token");
+    gpui_agent_infrastructure::load_or_create_token(&token_file)?;
     fs::write(&token_file, TOKEN)?;
     println!("Computer fixture API: {}", server.url);
     println!("Fixture-only token file: {}", token_file.display());

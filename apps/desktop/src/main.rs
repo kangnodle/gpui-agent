@@ -95,19 +95,23 @@ fn main() -> Result<()> {
             | Some(path) => path,
             | None => anyhow::bail!("--token-file is required when connecting to an API"),
         };
-        (url.trim_end_matches('/').to_owned(), std::fs::read_to_string(token_file)?.trim().to_owned())
+        (
+            url.trim_end_matches('/').to_owned(),
+            gpui_agent_infrastructure::read_private_token(&token_file)?,
+        )
     } else {
         let listener = runtime.block_on(tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)))?;
         let sessions = std::sync::Arc::new(gpui_agent_infrastructure::McpSessions::new(format!("http://{}/mcp", listener.local_addr()?))?);
         settings.mcp_sessions = Some(sessions.clone());
         settings.mcp_write = args.mcp_write;
         let token = gpui_agent_infrastructure::new_token()?;
+        let mcp_token = settings.load_host_token(&settings.home.join("mcp-read.token"))?;
         let application = settings.application()?;
         let workspaces = gpui_agent_infrastructure::Projects::open_catalog(settings.clone(), application.clone())?.service();
         let jobs = settings.jobs(workspaces.clone())?;
         let api = Api::new(application, token.clone())?
             .with_mcp_sessions(sessions)
-            .with_mcp_read_token(gpui_agent_infrastructure::load_or_create_token(&settings.home.join("mcp-read.token"))?)?
+            .with_mcp_read_token(mcp_token)?
             .with_workspaces(workspaces)
             .with_jobs(jobs)
             .with_controls(std::sync::Arc::new(gpui_agent_control::Controls::default().with_automatic_desktop()));

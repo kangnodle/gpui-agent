@@ -145,6 +145,51 @@ impl Host {
 }
 
 #[tokio::test]
+async fn subdirectory_agent_reads_its_literal_changed_path() -> Result<()> {
+    let host = Host::start().await?;
+    let root = Path::new(&host.catalog.projects[0].workspaces[0].path);
+    let notes = root.join("notes");
+    std::fs::create_dir(&notes)?;
+    for name in ["[a].txt", "a.txt"] {
+        std::fs::write(notes.join(name), "original\n")?;
+    }
+    git(root, &["add", "notes"])?;
+    git(root, &["commit", "-m", "add notes"])?;
+    std::fs::write(notes.join("[a].txt"), "bracketed note\n")?;
+    std::fs::write(notes.join("a.txt"), "plain note\n")?;
+    std::fs::write(root.join("tracked.txt"), "root note\n")?;
+    let catalog = host.call(TOKEN, "project_register", json!({"path":notes})).await?;
+    let catalog: ProjectCatalog = serde_json::from_value(catalog["result"]["structuredContent"].clone())?;
+    let workspace = catalog.projects[0]
+        .workspaces
+        .iter()
+        .find(|workspace| Some(workspace.id) == catalog.registered_workspace_id)
+        .unwrap();
+    let lease = host.sessions.issue(
+        McpScope {
+            provider: Provider::Codex,
+            account_id: "default".into(),
+            workspace_path: workspace.path.clone(),
+        },
+        false,
+    )?;
+    let token = &lease.connection().token;
+    let changes = host.call(token, "workspace_changes", json!({})).await?;
+    let files = changes["result"]["structuredContent"]["files"].as_array().unwrap();
+    assert_eq!(
+        files.iter().map(|file| file["path"].as_str().unwrap()).collect::<Vec<_>>(),
+        ["notes/[a].txt", "notes/a.txt"]
+    );
+    let result = host.call(token, "workspace_diff", json!({"path":"notes/[a].txt"})).await?;
+    let diff = result["result"]["structuredContent"]["unstaged"].as_str().unwrap();
+    assert!(diff.contains("+bracketed note"));
+    assert!(!diff.contains("+plain note"));
+    let outside = host.call(token, "workspace_diff", json!({"path":"tracked.txt"})).await?;
+    assert_eq!(outside["result"]["isError"], true);
+    host.stop().await
+}
+
+#[tokio::test]
 async fn scoped_agents_can_discover_their_workspace_and_read_changes_without_a_job_service() -> Result<()> {
     // Given two projects and a read-only agent scoped to the first workspace.
     let host = Host::start().await?;
