@@ -1,6 +1,6 @@
 [package]
   edition.workspace      = true
-  license.workspace      = true
+  license-file.workspace = true
   publish.workspace      = true
   name                   = "gpui-agent-api"
   rust-version.workspace = true

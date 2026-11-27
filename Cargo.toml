@@ -43,7 +43,7 @@
 
   [workspace.package]
     edition      = "2024"
-    license      = "LicenseRef-Proprietary"
+    license-file = "LICENSE"
     publish      = false
     rust-version = "1.90"
     version      = "0.1.0"

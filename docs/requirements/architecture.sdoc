@@ -278,3 +278,25 @@ STATEMENT: >>>
 <<<
 
 [[/SECTION]]
+
+[[SECTION]]
+TITLE: 라이선스와 배포
+
+[REQUIREMENT]
+UID: ARCH-LICENSE-1
+STATUS: Active
+TITLE: 루트 LICENSE를 프로젝트 라이선스로 사용
+STATEMENT: >>>
+워크스페이스의 자체 Cargo 패키지는 루트의 ``LICENSE`` 파일을 라이선스 파일로 상속합니다.
+데스크톱 배포 패키지에도 같은 파일을 포함하고 RPM에는 독점 라이선스 식별자를 명시합니다.
+서드파티 구성요소에는 각각의 라이선스가 적용됩니다.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: Cargo.toml
+- TYPE: File
+  VALUE: apps/desktop/Cargo.toml
+- TYPE: File
+  VALUE: README.md
+
+[[/SECTION]]

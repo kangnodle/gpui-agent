@@ -118,4 +118,4 @@ mise run check --include-desktop                                     # GPUI 변�
 
 ## 라이선스
 
-Proprietary — All rights reserved. 자세한 내용은 [LICENSE](LICENSE)를 참고하세요.
+프로젝트 자체 소프트웨어에는 [LICENSE](LICENSE)의 독점 라이선스 조건이 적용됩니다. 저작권은 kangnodle에 있으며 모든 권리를 보유합니다. 서드파티 구성요소에는 각각의 라이선스가 적용됩니다.

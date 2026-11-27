@@ -5,6 +5,8 @@ features = ["REQUIREMENT_TO_SOURCE_TRACEABILITY"]
 include_doc_paths = ["docs/requirements/**"]
 include_source_paths = [
   "AGENTS.md",
+  "Cargo.toml",
+  "README.md",
   "deny.toml",
   "strictdoc.toml",
   "vendor/**",
