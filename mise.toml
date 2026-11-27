@@ -1,4 +1,7 @@
 # Rust is pinned by rust-toolchain.toml and installed by rustup.
+[settings]
+disable_tools = ["rust"]
+
 [tools]
 node = "24.22.2"
 uv = "0.12.19"

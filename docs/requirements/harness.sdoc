@@ -52,6 +52,21 @@ RELATIONS:
   VALUE: crates/harness/tests/cli.rs
 
 [REQUIREMENT]
+UID: HARNESS-RUSTUP-TOOLCHAIN
+STATUS: Active
+TITLE: Rust toolchain ownership
+STATEMENT: >>>
+mise must defer Rust toolchain selection to rustup so a user-level mise Rust version cannot override or block workspace commands.
+<<<
+RELATIONS:
+- TYPE: File
+  VALUE: mise.toml
+- TYPE: File
+  VALUE: rust-toolchain.toml
+- TYPE: File
+  VALUE: crates/harness/tests/mise.rs
+
+[REQUIREMENT]
 UID: HARNESS-ISOLATION
 STATUS: Active
 TITLE: Isolation

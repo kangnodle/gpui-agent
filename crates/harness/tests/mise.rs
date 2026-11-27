@@ -66,3 +66,30 @@ fn given_mise_tasks_when_cargo_fails_then_arguments_working_directory_and_exit_a
         }
     }
 }
+
+#[test]
+fn workspace_leaves_rust_toolchain_selection_to_rustup() {
+    if Command::new("mise").arg("--version").output().is_err() {
+        assert!(std::env::var_os("CI").is_none(), "CI must install mise to test toolchain selection");
+        eprintln!("skip: install mise to test toolchain selection");
+        return;
+    }
+
+    let sandbox = support::Sandbox::new();
+    let checkout = sandbox.directory.path();
+    fs::copy(support::root().join("mise.toml"), checkout.join("mise.toml")).unwrap();
+    let user_config = checkout.join("user.toml");
+    fs::write(&user_config, "[tools]\nrust = \"1.102.0-nightly\"\n").unwrap();
+
+    let output = Command::new("mise")
+        .current_dir(checkout)
+        .env("MISE_TRUSTED_CONFIG_PATHS", checkout)
+        .env("MISE_GLOBAL_CONFIG_FILE", user_config)
+        .env_remove("MISE_DISABLE_TOOLS")
+        .args(["ls", "--current", "rust", "--json"])
+        .output()
+        .unwrap();
+    support::assert_exit(&output, 0);
+    let managed_versions: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(managed_versions.is_empty(), "mise selected a Rust toolchain: {managed_versions:?}");
+}
